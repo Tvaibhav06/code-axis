@@ -13,6 +13,11 @@ function check(name: string, passed: boolean) {
   console.log(`${passed ? "PASS" : "FAIL"} ${name}`);
   if (!passed) failures += 1;
 }
+function checkConflict(name: string, result: { status: number; error: { code?: string; message?: string } | null }) {
+  const passed = result.status === 409 && result.error?.code === "PT409";
+  check(name, passed);
+  if (!passed) console.log(`  Observed HTTP ${result.status}; code ${/^[A-Z0-9]{5,12}$/.test(result.error?.code || "") ? result.error!.code : "none"}; timeout ${/timeout|aborted/i.test(result.error?.message || "") ? "yes" : "no"}. Migration 007 is required; transport errors are not accepted as a pass.`);
+}
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -100,7 +105,9 @@ async function main() {
       if (published.error || !published.data?.[0]?.id) throw new Error("source publication");
       const firstBookId = published.data[0].id;
       const staleSource = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected, p_entries: samplecoSources });
-      check("Stale source publication is rejected", staleSource.error?.code === "40001");
+      checkConflict("Stale source publication returns an explicit conflict", staleSource);
+      const unchangedSource = await manager.from("workspaces").select("rulebook_version").eq("id", workspaceId).single();
+      check("Rejected stale publication preserves the current source version", !unchangedSource.error && unchangedSource.data?.rulebook_version === expected + 1);
       const thirty = [...samplecoSources, ...Array.from({ length: 24 }, () => ({ ...samplecoSources[4], id: randomUUID() }))];
       const fullBook = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected + 1, p_entries: thirty });
       check("Database accepts 30 source entries", !fullBook.error && fullBook.data?.[0]?.version === expected + 2);
@@ -123,7 +130,10 @@ async function main() {
       const history = await creator.from("campaign_versions").select("version,body").eq("campaign_id", campaignId).order("version");
       check("Reload preserves both immutable content versions", !history.error && history.data?.length === 2 && history.data[0].body === samplecoDraft.body && history.data[1].body === "Try SampleCo free for 14 days.");
       const staleDraft = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 1 });
-      check("Stale campaign saves are rejected", staleDraft.error?.code === "40001");
+      checkConflict("Stale campaign save returns an explicit conflict", staleDraft);
+      const unchangedDraft = await creator.from("campaigns").select("current_version").eq("id", campaignId).single();
+      const unchangedHistory = await creator.from("campaign_versions").select("version,body").eq("campaign_id", campaignId).order("version");
+      check("Rejected stale save preserves the current version and copy history", !unchangedDraft.error && unchangedDraft.data?.current_version === 2 && !unchangedHistory.error && isDeepStrictEqual(unchangedHistory.data, history.data));
       const foreignDraft = await otherCreator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 2 });
       check("Another workspace cannot revise the campaign", foreignDraft.error?.code === "42501");
       const tooLong = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 2, p_body: Array(1501).fill("sample").join(" ") });

@@ -6,6 +6,7 @@ import { DemoError, requireDemoContext } from "./demo";
 import { getDeskState, saveCampaign } from "./content";
 import { createDemoAdminClient } from "./supabase";
 import { AiFailure, reviewWithGemini } from "./gemini";
+import { isVersionConflict } from "@/lib/conflicts";
 type Context = Awaited<ReturnType<typeof requireDemoContext>>;
 
 export async function getReviewState(context: Context, campaignId: string) {
@@ -33,7 +34,7 @@ export async function humanAction(context: Context, input: unknown) {
 }
 function reviewError(code?: string): never {
   if (code === "42501") throw new DemoError(403, "This action requires the authorised role and an independent reviewer.");
-  if (code === "40001") throw new DemoError(409, "The review, copy or sources changed. Load latest before retrying.");
+  if (isVersionConflict(code)) throw new DemoError(409, "The review, copy or sources changed. Load latest before retrying.");
   if (code === "22023") throw new DemoError(400, "Approval needs a submitted current version, resolved blocking findings, current supporting sources and all required review checks.");
   throw new DemoError(503, "The review action could not be confirmed. Load latest before retrying.");
 }

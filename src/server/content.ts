@@ -1,6 +1,7 @@
 import "server-only";
 import { deskStateSchema, publishSourcesSchema, saveCampaignSchema } from "@/lib/content-schema";
 import { DemoError, requireDemoContext } from "./demo";
+import { isVersionConflict } from "@/lib/conflicts";
 
 export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>) {
   const { client, lease } = context;
@@ -17,7 +18,7 @@ export async function getDeskState(context: Awaited<ReturnType<typeof requireDem
 }
 
 function mutationError(code?: string): never {
-  if (code === "40001") throw new DemoError(409, "This version changed. Load the latest workspace before saving again.");
+  if (isVersionConflict(code)) throw new DemoError(409, "This version changed. Load the latest workspace before saving again.");
   if (code === "42501") throw new DemoError(403, "Your role cannot make this change.");
   if (["22023", "22007", "22008", "22P02", "23514"].includes(code || "")) throw new DemoError(400, "Check the fields, dates and size limits before saving.");
   throw new DemoError(503, "The save could not be confirmed. Load the latest workspace before retrying.");

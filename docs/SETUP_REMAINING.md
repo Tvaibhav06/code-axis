@@ -12,6 +12,9 @@ In the supplied Supabase project's SQL editor, apply these files **once, in orde
 4. `202610230004_phase3_checks.sql`
 5. `202610230005_phase4_review.sql`
 6. `202610230006_phase5_assets.sql`
+7. `202610240007_explicit_version_conflicts.sql`
+
+If migrations 001–006 are already applied, run **only 007** next. It retains the existing functions, permissions and row locks and changes expected stale-version errors to an explicit HTTP 409 response. Do not rerun the earlier schema-creation files.
 
 They are all in `supabase/migrations`. A SQL syntax check has passed locally; actual application, RLS, approval transactions and private storage still require verification in Supabase.
 
@@ -28,7 +31,7 @@ They are all in `supabase/migrations`. A SQL syntax check has passed locally; ac
 
 - Keep `GEMINI_BILLING_TIER=free`, use fictional data only, and keep the five-attempt session limit.
 - Set `GLOBAL_AI_ATTEMPT_LIMIT` to an allowance supported by the actual project quota, then re-run `seed:demo` to apply it without resetting counters. **Zero disables public AI calls.** A numeric allowance is not a provider billing cap or a daily reset mechanism.
-- The earlier structured connectivity fixture passed for `gemini-3.6-flash`. The configured `gemini-3.8-flash` candidate returned 503 and then timed out. This is historical connectivity evidence, not a completed product evaluation.
+- The owner supplied a fresh passing `gemini-3.6-flash` fixture and a timed-out `gemini-3.8-flash` fixture during setup. The local primary was explicitly changed to `gemini-3.6-flash`. Both configured slots currently use that one verified candidate; no independent fallback redundancy is claimed. A connectivity fixture is not a completed product evaluation.
 - Verify the model selected as `GEMINI_MODEL` before opening the demo. If choosing the tested candidate as primary, set that explicitly and disclose the actual deployed model. The product never switches models automatically. `GEMINI_FALLBACK_MODEL` is selected explicitly in the interface.
 - `AI_CHECKS_ENABLED=false` is an optional server off switch. The user can also choose exact checks only; approval then requires the manual facts/claims/tone checklist.
 

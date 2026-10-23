@@ -2,7 +2,7 @@
 
 ## Phase 0 — started 23 October 2026 (Asia/Kolkata)
 
-**Status: Public shell previously verified; Phase 0 service gate remains open. Phases 1–5 are prepared in code, with runtime checks blocked by deferred service setup.** No phase is marked complete without its exit evidence. Remaining service steps are in docs/SETUP_REMAINING.md.
+**Status: Service setup is underway. The owner supplied passing Supabase smoke and Gemini 3.6 connectivity reports. Most live permission checks passed; stale-version conflict responses need migration 007 and a rerun. Phases 1–5 remain short of full runtime acceptance.** No phase is marked complete without its exit evidence. Remaining service steps are in docs/SETUP_REMAINING.md.
 
 ### Authorised plan changes
 
@@ -132,3 +132,14 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 - Phase 6 browser journey/pilot and Phase 7 submission pack remain unstarted. Provider calls have not been repeated while service setup is deferred. No deployed end-to-end or accuracy result is inferred from compilation.
 - Final Phase 5 verification: **47/47 unit tests, lint, route generation, TypeScript and production build passed** after the last UI/error-state edits, using `.next-phase5-final` locally. Next's generated temporary output-path additions were removed from the tracked compiler settings afterwards; compiler options are unchanged.
 - Eight local HTTP checks against that production build passed: landing/health 200; review/upload mutations reject a foreign origin with 403; disabled review, image, issue-history and export services return controlled 503 responses. These are shell/gating checks, not signed-in permission or browser-journey evidence.
+
+## Live setup and stale-version repair — 24 October 2026 (Asia/Kolkata)
+
+- Owner reports migrations 001–006 created the expected tables, seeding succeeded, and Supabase Auth/database/private-storage smoke checks passed. The owner also supplied a fresh passing Gemini 3.6 fixture (about four seconds) and a timed-out 3.8 primary fixture (25 seconds).
+- The owner's real permission report passed every listed assertion except the two exact stale-version error-code expectations. Role isolation, immutability, independent approval, blocking findings, invalidation, the edit/approve race and image approval gates passed in that report. This is user-supplied runtime evidence, not a fresh full-suite pass by the agent.
+- A focused agent diagnostic using only verification identities reproduced both stale operations returning transport status 0 with an empty error code. Subsequent reads confirmed that source/campaign versions were unchanged. No judge slot, Gemini quota or API credentials were exposed. The diagnostic did not identify which transport component timed out.
+- The old SQL uses serialization SQLSTATE 40001 for expected user version conflicts, which PostgREST maps to HTTP 500. Migration 007 replaces only those raises in the four existing source/save/review/approve functions with PT409 (explicit HTTP 409). All role checks, row locks, conditional updates and grants remain. Already-applied migrations are preserved; apply only 007 to an existing 001–006 installation.
+- Server error handling accepts explicit PT409 and legacy 40001 during migration. Permission tests now require both PT409 and HTTP 409, separately verify unchanged saved versions/history, and print only sanitised status/code/timeout diagnostics on failure. Timeout/network errors are not accepted as a pass.
+- Local primary model explicitly changed to the owner-tested 3.6 candidate in ignored `.env.local`; both slots currently point to this one model, without claiming independent redundancy. No Gemini call was made during this diagnostic turn.
+- **49/49 rule-unit tests passed** including strict conflict classification; migration 007 SQL and PL/pgSQL syntax parsing passed. Applying 007, rerunning real permission checks, updating Vercel settings/deployment and Phase 6 acceptance remain pending.
+- Lint and TypeScript passed for the repair. The production build rerun hit the restricted Windows environment's EPERM folder-creation error at `.next-conflict-verify/server/app/api/export`; no new successful production-build result is claimed for this repair. Verify `npm run check` in normal PowerShell. The four function bodies after the scoped error-code replacement also passed SQL/PL/pgSQL syntax parsing. The 69-file staged-index secret scan passed; `.env.local` remains ignored.

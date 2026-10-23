@@ -42,7 +42,7 @@ export async function reviewPermissionChecks({ creator, reviewer, manager, other
     reviewer.rpc("approve_campaign", approveArgs),
   ]);
   check("Concurrent edit saves one new version", !edited.error && edited.data?.[0]?.version === 4);
-  check("Concurrent approval succeeds for v3 or rejects stale state", !racedApproval.error || racedApproval.error.code === "40001");
+  check("Concurrent approval succeeds for v3 or returns an explicit conflict", !racedApproval.error || (racedApproval.status === 409 && racedApproval.error.code === "PT409"));
   check("Edited version never inherits old approval", (await creator.rpc("approval_state", { p_campaign: campaignId })).data?.current === false);
   const clean = await admin.rpc("record_check_run", { ...args, p_version: edited.data?.[0]?.version_id, p_findings: [] });
   await creator.rpc("review_action", { ...action("submit"), p_expected_version: 4 });
