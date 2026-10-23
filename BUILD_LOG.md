@@ -55,7 +55,7 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 | 3. Checks and real AI | Prepared; 27 local unit checks and production build pass | Live persistence, quota and provider journey pending |
 | 4. Human review/approval | Prepared; local checks pass | Live permission and transaction tests pending |
 | 5. Images/export | Prepared; 47 local unit checks pass | Deployed upload/export and permission gates require setup |
-| 6. Pilot/verification | Not started | Await working core journey |
+| 6. Pilot/verification | Partial: manual text/image browser journeys pass; pilot and live-AI journey failed | Repeated provider 503; remaining gates in docs/PHASE6_VERIFICATION.md |
 | 7. Submission pack | Not started | Await measured implementation results |
 
 ### Observed live checks
@@ -143,3 +143,15 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 - Local primary model explicitly changed to the owner-tested 3.6 candidate in ignored `.env.local`; both slots currently point to this one model, without claiming independent redundancy. No Gemini call was made during this diagnostic turn.
 - **49/49 rule-unit tests passed** including strict conflict classification; migration 007 SQL and PL/pgSQL syntax parsing passed. Applying 007, rerunning real permission checks, updating Vercel settings/deployment and Phase 6 acceptance remain pending.
 - Lint and TypeScript passed for the repair. The production build rerun hit the restricted Windows environment's EPERM folder-creation error at `.next-conflict-verify/server/app/api/export`; no new successful production-build result is claimed for this repair. Verify `npm run check` in normal PowerShell. The four function bodies after the scoped error-code replacement also passed SQL/PL/pgSQL syntax parsing. The 69-file staged-index secret scan passed; `.env.local` remains ignored.
+
+## Phase 6 local work — 24 October 2026 (Asia/Kolkata)
+
+- Owner subsequently supplied passing migration-007 permission checks, primary connectivity, all 49 unit tests and a successful production build from normal PowerShell. The owner enabled local demo access and explicitly deferred Vercel deployment until local work is finished.
+- Installed pinned Playwright 1.64.1; added one repeatable Chromium journey with explicit AI/manual modes and optional image steps. No automatic test retries, network-response mocks, stored auth-state files, CI or extra automated suite.
+- Manual text and image journeys passed, including real identities, direct private upload/finalisation, published logo/palette, copy revision, independent human approval, actual HTML download, edit invalidation and HTTP 409 on stale export. A 390 px viewport and keyboard skip-link entry passed. These are solo automated runs, not unassisted user evidence.
+- Initial test-address rejection was resolved by using localhost, matching Next's normalised local origin; the app's origin check was not relaxed. A cancelled download passed using workspace-owned temporary/download directories. An accidental extra manual test launch after a shell-quoting error was interrupted. Failures/reruns are disclosed in the verification report.
+- Added an actual expired-source approval denial assertion to the existing permission group and reran it against real verification accounts: **zero failures**. Rule tests remain **49/49**; lint and TypeScript passed after authoring the test/runner. No product runtime source was modified in this phase.
+- With owner authorisation to work within the free tier, set the database/local cumulative app allowance to 12 with per-lease limit 5, preserving consumed attempts. This is a conservative cap, not a verified Google project quota. No billing changes or automatic quota increases were made.
+- Ten fixed pilot cases each made one real model request, at least 65 seconds apart. Four completed and six returned HTTP 503. The combined pipeline caught 4/6 planted issues (including exact findings on failed AI runs); only 2/6 planted cases had completed AI responses. Zero false alarms occurred among the 2 clean cases that completed AI; the other 2 clean cases are unknown. **The pilot target was not met.** Raw first-run results are retained unchanged under docs/evidence.
+- The separate real-AI image/browser attempt also failed at its first real check with recorded provider_http_503. Total Phase 6 provider calls: 11, comprising 4 complete and 7 HTTP 503. The twelfth allowance unit was left unused. Manual-path passes do not count as a live-AI journey pass.
+- Snapshot after testing: 17 unused judge slots, 7 claimed, with no recycling. Verification slots remain separate. Phase 6 stays partial; see docs/PHASE6_VERIFICATION.md for session/global exhaustion, timeout, maximum browser upload and deployment checks still unverified. Phase 7 and deployment were not performed.

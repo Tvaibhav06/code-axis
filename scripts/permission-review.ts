@@ -51,4 +51,14 @@ export async function reviewPermissionChecks({ creator, reviewer, manager, other
   const changed = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: bookVersion, p_entries: samplecoSources });
   check("Manager publishes changed source snapshot", !changed.error);
   check("New sources make the previous approval historical", (await creator.rpc("approval_state", { p_campaign: campaignId })).data?.current === false);
+  const expiredSources = samplecoSources.map((s) => s.kind === "trial_days" ? { ...s, validUntil: "2026-10-01" } : s);
+  const expiredBook = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: bookVersion + 1, p_entries: expiredSources });
+  if (expiredBook.error) throw new Error("expired supporting-source fixture");
+  const expiredRun = await admin.rpc("record_check_run", { ...args, p_version: edited.data?.[0]?.version_id,
+    p_rulebook: expiredBook.data[0].id, p_supported: [samplecoSources[1].id], p_findings: [] });
+  if (expiredRun.error) throw new Error("expired manual review fixture");
+  await creator.rpc("review_action", { ...action("submit"), p_expected_version: 4 });
+  const expiredApproval = await reviewer.rpc("approve_campaign", { ...approveArgs, p_expected_version: 4,
+    p_rulebook: expiredBook.data[0].id, p_run: expiredRun.data });
+  check("Expired supporting fact prevents approval even with no unresolved findings", expiredApproval.error?.code === "22023");
 }

@@ -4,7 +4,7 @@
 **Participant:** Vaibhav Tandon | **Email:** 24ucc077@lnmiit.ac.in
 **Revised:** 23 October 2026, incorporating the agreed cut ladder and Phase 0 start
 **Budget:** 26 focused hours, including checks and submission preparation, plus 4 hours of repair reserve. **Total: 30 hours.**
-**Status:** Public shell previously verified. Phases 1–5 are prepared in code; live-service/runtime gates remain open. The owner deferred service setup and authorised continued code preparation. BUILD_LOG.md records checks and limitations; docs/SETUP_REMAINING.md lists the service work. Phase 6 evaluation/browser evidence and Phase 7 submissions are still pending.
+**Status:** Phases 1–5 have local rule, real-permission and manual browser evidence. Phase 6 is partial: the ten-draft pilot and real-AI browser attempt failed the provider-reliability gate. See docs/PHASE6_VERIFICATION.md for measured results, original failures and remaining checks. Deployment is deferred at the owner's request; no full release or submission readiness is claimed.
 
 ## 1. What this revision changes
 
@@ -115,7 +115,7 @@ This is a bounded judge demo, not unlimited public signup. Pool capacity is a re
 
 ### Gemini configuration and controls
 
-1. **Models:** Google lists both **gemini-3.8-flash** and **gemini-3.6-flash**. Smoke-test structured output and project access for both from the deployment. Pin 3.8 as primary; 3.6 is an explicitly configured, tested fallback. Record the actual model in every run and repeat affected pilot checks after switching. No automatic fallback chain. [Model catalogue](https://ai.google.dev/gemini-api/docs/models)
+1. **Models:** The owner-tested candidate is **gemini-3.6-flash**; 3.8 timed out/failed and was explicitly replaced locally. Both configured slots currently use 3.6, without independent redundancy. Phase 6 observed repeated 503 responses, so availability remains an open gate. Record the actual model in every run and repeat affected pilot checks after an explicit model change. No automatic fallback chain. Verify the deployed configuration later.
 2. **Free-tier processing, per the owner's latest instruction:** use fictional SampleCo data only. State clearly before an AI check and in the submission PDF that free-tier inputs and responses may be used by Google to improve its products. Do not enter confidential, client or personal information. Keep the manual review path and AI-off option. [Gemini terms](https://ai.google.dev/gemini-api/terms)
 3. **Billing:** keep the supplied project on the free tier; this build does not activate billing. If the owner later chooses paid access, configure the project spend cap and budget alerts first. Budget alerts alone do not stop requests, and provider caps may have processing delays. Record any tier change and update the disclosure. [Gemini billing](https://ai.google.dev/gemini-api/docs/billing) · [Cloud budgets](https://docs.cloud.google.com/billing/docs/how-to/budgets)
 4. **Visitor limit:** start with **5 attempts per demo lease on the free tier**, shared across its three roles, enforced server-side by an atomic conditional counter increment before the provider call. Failed attempts and explicit retries count. The previously agreed **15 attempts** remain the paid-tier option after sufficient global headroom is confirmed. This is a session limit, not identification of a unique human across browsers; do not raise only the UI limit.

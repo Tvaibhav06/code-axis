@@ -17,7 +17,9 @@
     "seed:demo": "tsx scripts/seed-demo-pool.ts",
     "seed:content": "tsx scripts/seed-content.ts",
     "test:permissions": "tsx scripts/test-permissions.ts",
-    "test:rules": "vitest run"
+    "test:rules": "vitest run",
+    "test:browser": "playwright test",
+    "pilot": "tsx scripts/run-pilot.ts"
   },
   "dependencies": {
     "@next/env": "16.4.2",
@@ -31,6 +33,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/node": "22.19.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

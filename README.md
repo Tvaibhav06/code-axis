@@ -12,7 +12,7 @@ Use Node 22 and npm. Install the pinned dependencies with `npm ci`. Copy `.env.e
 
 Checks: `npm run lint`, `npm run typecheck`, `npm run build`.
 
-The rule-unit group uses Vitest: `npm run test:rules`. It covers input boundaries, exact checks, AI source/span validation, actual image decoding, contrast, issue deduplication and escaped export. The real permission group uses seeded Supabase accounts. Phase 6 still needs one Playwright journey and the ten-draft pilot; no CI pipeline or broad DB-test framework has been added. Next uses its supported Webpack builder for Windows/native-module compatibility. The setup checklist documents the optional fresh local build directory.
+The rule-unit group uses Vitest: `npm run test:rules`. It covers input boundaries, exact checks, AI source/span validation, actual image decoding, contrast, issue deduplication and escaped export. The real permission group uses seeded Supabase accounts. `npm run test:browser` provides the single Playwright journey; `npm run pilot` records the ten frozen development cases. Manual text/image journeys passed, but the first pilot and real-AI journey failed due to repeated provider 503 responses. **Phase 6 is partial.** See [the measured report](docs/PHASE6_VERIFICATION.md) for failures, reruns, commands, remaining allowance and unverified gates. No CI pipeline or broad DB-test framework has been added. Next uses its supported Webpack builder; the setup checklist documents the optional local build directory.
 
 The public `/api/health` endpoint checks the application shell only. It intentionally makes no claim that any external service is connected.
 
