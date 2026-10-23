@@ -14,7 +14,8 @@ export function publicSupabaseConfig() {
   return { url, key };
 }
 
-// Only demo allocation/setup uses this client. Product reads/writes use user RLS.
+// Trusted allocation, check-result and validated-asset recording only, after lease/role checks.
+// Ordinary product reads and human edits/approval use the user's RLS-bound client.
 export function createDemoAdminClient() {
   const { url } = publicSupabaseConfig();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;

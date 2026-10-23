@@ -52,7 +52,8 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 | 0. Setup/deployment | Partial: public shell works, one real model fixture passed | Supabase/Auth, database/storage, primary model and deployed diagnostic remain unresolved |
 | 1. Foundation/demo pool | Prepared in code; static checks pass | Migrations, seeded identities, real permission checks and browser isolation remain pending |
 | 2. Sources/content snapshots | Prepared in code; 19 input-boundary unit checks pass | Real persistence, role checks and deployed editor remain pending |
-| 3–5. Checks, approval, images/export | Not started | Await data/access gates |
+| 3. Checks and real AI | Prepared; 27 local unit checks and production build pass | Live persistence, quota and provider journey pending |
+| 4–5. Approval, images/export | In preparation | Runtime gates still require external setup |
 | 6. Pilot/verification | Not started | Await working core journey |
 | 7. Submission pack | Not started | Await measured implementation results |
 
@@ -96,3 +97,12 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 - Vitest unit group: **19 tests passed** for source/word boundaries, duplicate identities, required metadata, invalid dates/numbers, rejected caller scope and missing current snapshots. This is input validation evidence, not live AI accuracy or the ten-draft pilot.
 - Final Phase 2 checks: **19/19 unit tests passed**, followed by successful lint, route generation, TypeScript and production build after the last error-state edits. Browser/database runtime gates remain unverified.
 - Still no implemented product AI checks, human approval, image-review workflow, issue insights or export. Those remain in Phases 3–5. No Round 3 feature has been added.
+
+## Phase 3 code preparation — 23 October 2026
+
+- Exact name, trial-day, INR monthly-price and relevant source-validity checks; three labelled finding categories with exact quotes and source references.
+- Real server-side Gemini request with a 25-second bound, explicit primary/fallback selection, structured output plus real-source/exact-quote validation. No mocked product AI, retry or result cache.
+- Server-only recording prevents a browser from inventing a successful AI run. Session/global allowance is reserved before a provider call; failure keeps exact results and requires manual review.
+- Saved check history and creator-confirmed literal replacement into a new version. Review refers to saved copy, not unsaved form text.
+- Local verification: **27/27 unit tests**, lint, TypeScript and production build passed. The first test run exposed a misnamed fixture import, corrected before this result.
+- Migration 004 and the product AI journey have not run on Supabase. No live permissions, accuracy or deployed-workflow pass is claimed. Phase 0/1 setup remains deferred by the owner.

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { deskStateSchema, sourceKinds, wordCount, type Campaign, type CampaignInput, type DeskState, type SourceEntry } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
+import { ReviewPanel } from "./review-panel";
 
 const kindLabels = { terminology: "Approved name", trial_days: "Trial days", monthly_price: "Monthly price (INR)",
   offer: "Offer/code", tone: "Tone guidance", evidence: "Evidence requirement" };
@@ -129,6 +130,7 @@ export function WorkspaceEditor({ initialState, role, userId }: { initialState: 
     {view === "sources" ? <SourcesEditor key={`sources-${state.rulebookVersion}`} data={state} editable={role === "manager"} reload={reload} /> : <>
       <div className="campaign-picker"><label htmlFor="campaign-picker">Saved campaign</label><select id="campaign-picker" value={selected} onChange={(event) => setSelected(event.target.value)}><option value="">New campaign</option>{state.campaigns.map((item) => <option key={item.id} value={item.id}>{item.campaign_versions.find((version) => version.version === item.current_version)?.title} · v{item.current_version}</option>)}</select></div>
       <CampaignEditor key={`${selected}-${campaign?.current_version || 0}`} campaign={campaign} editable={role === "creator" && (!campaign || campaign.creator_id === userId)} reload={reload} />
+      {campaign && <ReviewPanel key={`review-${campaign.id}-${campaign.current_version}-${state.rulebookVersion}`} campaign={campaign} state={state} role={role} reload={reload} />}
     </>}
   </div>;
 }
