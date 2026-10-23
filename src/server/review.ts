@@ -1,12 +1,50 @@
 import "server-only";
 import { z } from "zod";
-import { checkRequestSchema, runSchema } from "@/lib/review-schema";
+import { checkRequestSchema, runSchema, reviewViewSchema } from "@/lib/review-schema";
 import { exactChecks, applyLiteralSuggestion } from "@/lib/checks";
 import { DemoError, requireDemoContext } from "./demo";
 import { getDeskState, saveCampaign } from "./content";
 import { createDemoAdminClient } from "./supabase";
 import { AiFailure, reviewWithGemini } from "./gemini";
 type Context = Awaited<ReturnType<typeof requireDemoContext>>;
+
+export async function getReviewState(context: Context, campaignId: string) {
+  const runs = await getRuns(context, campaignId);
+  const [events, approval] = await Promise.all([
+    context.client.from("review_events").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("created_at", { ascending: true }),
+    context.client.rpc("approval_state", { p_campaign: campaignId }),
+  ]);
+  const parsed = reviewViewSchema.safeParse({ runs, events: events.data, approval: approval.data });
+  if (events.error || approval.error || !parsed.success) throw new DemoError(503, "Review/approval history is unavailable. Check the Phase 4 migration and reload.");
+  return parsed.data;
+}
+
+const reviewActionSchema = z.strictObject({ campaignId: z.uuid(), version: z.number().int().positive(),
+  action: z.enum(["comment", "submit", "confirm", "dispute", "dismiss", "request_changes", "clarification_request", "clarification_answer"]),
+  note: z.string().trim().min(1).max(1500), findingId: z.uuid().nullable().default(null) });
+export async function humanAction(context: Context, input: unknown) {
+  const parsed = reviewActionSchema.safeParse(input);
+  if (!parsed.success) throw new DemoError(400, "Choose an action and enter a note of up to 1,500 characters.");
+  const p = parsed.data;
+  const result = await context.client.rpc("review_action", { p_campaign: p.campaignId, p_expected_version: p.version, p_action: p.action, p_note: p.note, p_finding: p.findingId });
+  if (result.error) reviewError(result.error.code);
+  return result.data;
+}
+function reviewError(code?: string): never {
+  if (code === "42501") throw new DemoError(403, "This action requires the authorised role and an independent reviewer.");
+  if (code === "40001") throw new DemoError(409, "The review, copy or sources changed. Load latest before retrying.");
+  if (code === "22023") throw new DemoError(400, "Approval needs a submitted current version, resolved blocking findings, current supporting sources and all required review checks.");
+  throw new DemoError(503, "The review action could not be confirmed. Load latest before retrying.");
+}
+export async function approve(context: Context, input: unknown) {
+  const parsed = z.strictObject({ campaignId: z.uuid(), version: z.number().int().positive(), rulebookId: z.uuid(), runId: z.uuid(),
+    checklist: z.strictObject({ finalReview: z.boolean(), facts: z.boolean(), claims: z.boolean(), tone: z.boolean() }) }).safeParse(input);
+  if (!parsed.success) throw new DemoError(400, "Complete the reviewer checklist.");
+  const p = parsed.data;
+  const result = await context.client.rpc("approve_campaign", { p_campaign: p.campaignId, p_expected_version: p.version, p_rulebook: p.rulebookId, p_run: p.runId, p_checklist: p.checklist });
+  if (result.error) reviewError(result.error.code);
+  return result.data;
+}
 
 export async function getRuns(context: Context, campaignId: string) {
   if (!z.uuid().safeParse(campaignId).success) throw new DemoError(400, "Choose a saved campaign.");

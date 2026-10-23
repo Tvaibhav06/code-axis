@@ -4,6 +4,7 @@ import { z } from "zod";
 import { runSchema, categoryLabels, type CheckRun } from "@/lib/review-schema";
 import type { Campaign, DeskState } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
+import { HumanReview } from "./human-review";
 
 export async function reviewPost(action: string, input: unknown) {
   let response;
@@ -43,7 +44,7 @@ export function ReviewPanel({ campaign, state, role, reload }: { campaign: Campa
     finally { setBusy(false); }
   }
   const current = runs.find((r) => r.content_version_id === latest.id && r.rulebook_id === state.rulebooks[0]?.id);
-  return <section className="editor-panel" aria-labelledby="review-heading"><h2 id="review-heading">Check saved version {campaign.current_version}</h2>
+  return <><section className="editor-panel" aria-labelledby="review-heading"><h2 id="review-heading">Check saved version {campaign.current_version}</h2>
     <p>Checks use saved copy and published sources. Editing the draft above does not change this review until you save.</p>
     {role === "creator" && <fieldset disabled={busy || loading || !state.rulebooks.length} className="plain-fieldset"><legend>Check settings</legend>
       <label className="check-label"><input type="checkbox" checked={ai} onChange={(e) => setAi(e.target.checked)} />Include a real AI check</label>
@@ -60,5 +61,5 @@ export function ReviewPanel({ campaign, state, role, reload }: { campaign: Campa
         <blockquote>{f.quote}</blockquote><p>{f.explanation}</p><small>Source: {state.rulebooks[0]?.entries.find((s) => s.id === f.rule_id)?.title || f.rule_id}</small>
         {f.suggestion && <><p>Suggested replacement: {f.suggestion}</p>{role === "creator" && <button disabled={busy} className="secondary-button" onClick={() => action("apply", { findingId: f.id })}>Apply to a new saved version</button>}</>}</li>)}</ul></>}
     {runs.length > 0 && <details className="history"><summary>Saved check history ({runs.length})</summary>{runs.map((r) => <p key={r.id}>{r.created_at} · {r.status} · {r.findings.length} findings · {r.model || "AI off"}{r.id === current?.id ? " · current" : " · historical"}</p>)}</details>}
-  </section>;
+  </section><HumanReview key={`${current?.id || "none"}-${campaign.status}`} campaign={campaign} run={current} role={role} reload={reload} /></>;
 }

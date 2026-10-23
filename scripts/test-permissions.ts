@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { demoManifestSchema, type DemoRole } from "../src/lib/demo-schema";
 import { samplecoDraft, samplecoSources } from "../src/lib/sampleco";
+import { reviewPermissionChecks } from "./permission-review";
 
 loadEnvConfig(process.cwd());
 let failures = 0;
@@ -18,7 +19,7 @@ async function main() {
   const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const parsed = demoManifestSchema.safeParse(JSON.parse(process.env.DEMO_POOL_ACCOUNTS_JSON || "null"));
   if (!url || !key || !adminKey || !parsed.success || parsed.data.projectUrl !== url) throw new Error("configuration");
-  // Admin access is restricted to cleanup of this script's unique fixtures.
+  // Admin access is limited to unique fixtures, trusted manual-run fixtures and cleanup.
   const cleanupClient = createClient(url, adminKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const slots = parsed.data.slots.filter((slot) => slot.verificationOnly);
   if (slots.length !== 2) throw new Error("verification identities");
@@ -128,6 +129,8 @@ async function main() {
       check("Database rejects 1,501 words", tooLong.error?.code === "22023");
       const boundary = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 2, p_body: Array(1500).fill("sample").join(" ") });
       check("Database accepts 1,500 words", !boundary.error && boundary.data?.[0]?.version === 3);
+      if (!process.argv.includes("--through-phase2")) await reviewPermissionChecks({ creator, reviewer, manager, otherCreator,
+        admin: cleanupClient, workspaceId, ownerId, campaignId, bookId: fullBook.data[0].id, bookVersion: expected + 2, check });
     }
   } finally {
     if (uploaded) {
@@ -137,7 +140,7 @@ async function main() {
     await Promise.all([creator, reviewer, manager, otherCreator].map((client) => client.auth.signOut({ scope: "local" })));
   }
   console.log(`${failures === 0 ? "PASS" : "FAIL"} ${process.argv.includes("--foundation-only") ? "Phase 1" : "Phase 1/2"} permission checks (${failures} failed).`);
-  console.log("Approval and AI-limit execution checks belong to their later planned phases; they are not claimed verified here.");
+  console.log("Manual permission fixtures are not AI accuracy or pilot evidence. AI quota and the browser journey require separate live verification.");
   process.exitCode = failures ? 1 : 0;
 }
 
