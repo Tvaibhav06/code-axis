@@ -2,7 +2,9 @@
   "name": "brand-review-desk",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,10 +13,13 @@
     "typecheck": "next typegen && tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm run build",
     "smoke:services": "tsx scripts/smoke-services.ts",
-    "smoke:deployment": "tsx scripts/smoke-deployment.ts"
+    "smoke:deployment": "tsx scripts/smoke-deployment.ts",
+    "seed:demo": "tsx scripts/seed-demo-pool.ts",
+    "test:permissions": "tsx scripts/test-permissions.ts"
   },
   "dependencies": {
     "@next/env": "16.4.2",
+    "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.118.0",
     "next": "16.4.2",
     "react": "19.3.1",

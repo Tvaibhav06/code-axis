@@ -38,7 +38,15 @@ async function supabaseChecks(): Promise<CheckResult[]> {
   let userId: string;
   try {
     const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error || !data.user) throw new Error("auth");
+    if (error || !data.user) {
+      const known = error?.code === "invalid_credentials"
+        ? "The dedicated Supabase Auth user's email/password was rejected. These must be an Auth user in this project, not dashboard login credentials."
+        : error?.code === "email_not_confirmed"
+          ? "Confirm the dedicated smoke user's email in Supabase Auth before testing."
+          : "Check the publishable key, Auth user and project connection.";
+      return [result(names[0], false, `Authentication failed (HTTP ${error?.status || 0}). ${known}`, start),
+        ...names.slice(1).map((name) => blocked(name, "Authentication must pass first."))];
+    }
     userId = data.user.id;
     checks.push(result(names[0], true, "Authenticated as the dedicated smoke user, without an admin key.", start));
   } catch {
@@ -143,12 +151,13 @@ async function geminiCheck(model: string, label: string): Promise<CheckResult> {
   }
 }
 
-export async function runPhase0Checks() {
-  const [database, primary, fallback] = await Promise.all([
-    supabaseChecks(),
-    geminiCheck(process.env.GEMINI_MODEL || "gemini-3.8-flash", "gemini-primary"),
-    geminiCheck(process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash", "gemini-fallback"),
-  ]);
-  const checks = [...database, primary, fallback];
-  return { checkedAt: new Date().toISOString(), passed: checks.every((c) => c.status === "passed"), checks };
+export const smokeScopes = ["all", "supabase", "primary", "fallback"] as const;
+export async function runPhase0Checks(scope: typeof smokeScopes[number] = "all") {
+  const checks: CheckResult[] = [];
+  // An explicit narrow CLI scope avoids repeating successful provider calls.
+  // The deployed diagnostic always uses all checks; there is no automatic retry.
+  if (scope === "all" || scope === "supabase") checks.push(...await supabaseChecks());
+  if (scope === "all" || scope === "primary") checks.push(await geminiCheck(process.env.GEMINI_MODEL || "gemini-3.8-flash", "gemini-primary"));
+  if (scope === "all" || scope === "fallback") checks.push(await geminiCheck(process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash", "gemini-fallback"));
+  return { scope, checkedAt: new Date().toISOString(), passed: checks.every((c) => c.status === "passed"), checks };
 }

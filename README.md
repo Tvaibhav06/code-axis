@@ -4,7 +4,7 @@ A focused CodeAxis project by DIZZY DEV (Vaibhav Tandon). Review campaign conten
 
 ## Current status
 
-Phase 0 foundation. The landing page is an illustrative preview, not a working campaign-review product. Database/Auth, private storage and both Gemini model checks have a real smoke-test path; they must actually pass before Phase 0 is complete. See BUILD_LOG.md for observed results and blockers.
+The shell is deployed at [brand-review-desk.vercel.app](https://brand-review-desk.vercel.app). The home page and health route returned 200; the setup route rejected unauthorised requests. The landing example remains illustrative. Phase 1 foundation code is prepared with demo entry disabled by default. Phase 0/1 gates remain open until the real service and isolation checks pass. See BUILD_LOG.md for results and blockers.
 
 ## Local setup
 
@@ -27,9 +27,26 @@ The public `/api/health` endpoint checks the application shell only. It intentio
 
 There is no automatic retry or fallback switch. Both model IDs are configured candidates until their actual calls pass. The single-turn `generateContent` REST API remains supported; using native fetch avoids another SDK dependency. The smoke fixture only verifies structured extraction, not the full review engine's accuracy.
 
+For a focused recheck, use `npm run smoke:services -- supabase`, `-- primary` or `-- fallback`. The result includes its scope; a passing single-model check does not certify all integrations. The deployed diagnostic always checks the full set.
+
 Import [Tvaibhav06/code-axis](https://github.com/Tvaibhav06/code-axis) into Vercel, select Next.js, leave Root Directory at the repository root and use Node 22. Add secrets in Vercel environment variables, never in Git. The shell can build without service keys; service checks will stay blocked until they are configured. After deployment, set `NEXT_PUBLIC_SITE_URL` to its actual HTTPS URL and run the deployed check. A local build or Git push does not verify deployment.
 
 The supplied Supabase project is `https://uyowubvbofkahdoovfxb.supabase.co`. Its URL is public configuration; its publishable key and test-account settings must still be entered locally. No migration has been applied automatically.
+
+## Phase 1 setup and verification
+
+1. Apply `supabase/migrations/202610230002_phase1_foundation.sql` after the Phase 0 migration, using the project's SQL editor or your migration tooling. This creates workspace memberships, private asset access, demo leases and attempt counters. SQL has not been applied merely because the file exists.
+2. Add the Supabase server secret/service-role key as `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Keep `DEMO_ACCESS_ENABLED=false`. This key is restricted in application code to demo allocation; campaign operations will use the signed-in user's RLS permissions. The setup script also uses it to pre-provision accounts. No runtime route creates accounts.
+3. Run `npm run seed:demo`. Default: **24 judge workspaces plus two isolated verification workspaces**, three real Auth identities each. Fictional `example.test` addresses are confirmed through the admin API without sending email. The script persists generated credentials only in `.env.local` as `DEMO_POOL_ACCOUNTS_JSON`, and replaces smoke-user settings with the first verification creator. No secrets are printed. Re-run with the same file to resume; it preserves claimed slots. Increasing `DEMO_POOL_SIZE` appends capacity; shrinking/recycling is refused.
+4. Run the Supabase smoke check and `npm run test:permissions`. The latter uses the two verification workspaces for actual role, cross-workspace, privileged-RPC and private-file checks. Its admin key is used only for unique test-image cleanup. It does not substitute mocks for a real database or claim later approval/source tests have passed.
+5. Copy the server key, generated manifest and required settings privately into Vercel. For the deployed Phase 0 check, the same `PHASE0_SMOKE_TOKEN` must be present locally and in Vercel. Deploy again after environment changes. Never commit `.env.local` or paste secrets into chat.
+6. After service/permission checks pass, enable `DEMO_ACCESS_ENABLED=true`, redeploy, then verify two fresh browser sessions receive separate workspaces, roles switch correctly and refresh restores access. Only then close the Phase 1 gate and start Phase 2. Disable entry again if the gate fails.
+
+The public entry reserves a pre-provisioned slot atomically, uses an opaque HttpOnly lease cookie and signs in with real Supabase Auth. An eight-hour lease is never automatically recycled. Role switching accepts only a role name and resolves the account from that lease; callers cannot supply account/workspace IDs. Mutations require the same request origin. Auth cookies are renewed with the standard Supabase SSR client and Next.js proxy.
+
+`DEMO_AI_ATTEMPT_LIMIT=5` is the free-tier setting. `GLOBAL_AI_ATTEMPT_LIMIT=0` leaves public AI calls disabled until the owner chooses an allowance from actual provider quota; setup does not assume a free-tier quota. The database reservation function counts an attempt before a future Phase 3 provider call, with conditional global/session updates in one transaction. Those limit execution tests remain part of Phase 3.
+
+Private assets allow member reads and creator/manager uploads under their own workspace/user path. Browser overwrite and deletion are denied so saved images can later support immutable content versions. Phase 5 still needs upload-byte validation and the actual image workflow; a storage policy is not that completed feature.
 
 ## Scope and decisions
 

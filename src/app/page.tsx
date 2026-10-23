@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StartDemo } from "@/components/demo-controls";
 
 const steps = [
   ["01", "Start with your sources", "Keep approved facts, language and brand assets together."],
@@ -7,6 +8,7 @@ const steps = [
 ];
 
 export default function Home() {
+  const demoEnabled = process.env.DEMO_ACCESS_ENABLED === "true";
   return (
     <>
       <a className="skip-link" href="#main">Skip to content</a>
@@ -23,8 +25,8 @@ export default function Home() {
             <p className="eyebrow"><span className="dot" /> A clearer path to approval</p>
             <h1 id="headline">Good content.<br />Grounded in <em>your brand.</em></h1>
             <p className="lede">Give every campaign a second look. Check the claims, see the sources and keep the final decision with your team.</p>
-            <a className="button" href="#example">See the review example <span aria-hidden="true">↘</span></a>
-            <p className="availability">The interactive demo is being prepared.</p>
+            {demoEnabled ? <StartDemo /> : <a className="button" href="#example">See the review example <span aria-hidden="true">↘</span></a>}
+            <p className="availability">{demoEnabled ? "Explore a fictional SampleCo workspace. No signup needed." : "The interactive demo is being prepared."}</p>
           </div>
           <article id="example" className="review-card" aria-labelledby="example-heading">
             <div className="card-top"><span className="overline">SampleCo / Campaign draft</span><span className="sample-label">Illustrative example</span></div>
