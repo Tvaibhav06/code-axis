@@ -2,7 +2,7 @@
 
 ## Phase 0 — started 23 October 2026 (Asia/Kolkata)
 
-**Status: Public shell verified; Phase 0 service gate remains open. Phase 1 foundation prepared, not yet verified with real demo accounts.** No phase is marked complete without its exit evidence.
+**Status: Public shell verified; Phase 0 service gate remains open. Phase 1/2 code prepared, with runtime checks blocked by deferred service setup.** No phase is marked complete without its exit evidence.
 
 ### Authorised plan changes
 
@@ -51,7 +51,8 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 |---|---|---|
 | 0. Setup/deployment | Partial: public shell works, one real model fixture passed | Supabase/Auth, database/storage, primary model and deployed diagnostic remain unresolved |
 | 1. Foundation/demo pool | Prepared in code; static checks pass | Migrations, seeded identities, real permission checks and browser isolation remain pending |
-| 2–5. Sources, checks, approval, images/export | Not started | Await foundation/access gate |
+| 2. Sources/content snapshots | Prepared in code; 19 input-boundary unit checks pass | Real persistence, role checks and deployed editor remain pending |
+| 3–5. Checks, approval, images/export | Not started | Await data/access gates |
 | 6. Pilot/verification | Not started | Await working core journey |
 | 7. Submission pack | Not started | Await measured implementation results |
 
@@ -83,3 +84,15 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 - Focused lint/typecheck rerun after permission-script cleanup edits: passed. Migration runtime, real permission results, fresh-browser allocation and deployed foundation are still pending.
 - No authorised cut has been activated. Campaign checks, approvals and export have not been labelled complete or simulated.
 - The owner explicitly chose **continue code preparation; setup later** after the Auth/token blockers were reported. Preparation may continue in plan order; no runtime exit gate is waived or marked passed. No further repeated provider calls are planned while setup is deferred.
+
+## Phase 2 code preparation — 23 October 2026
+
+- Manager source form with up to 30 entries, owners/references, validity dates and terminology aliases; immutable publications and readable history.
+- Creator campaign form with purpose/audience, the 1,500-word boundary, explicit numbered saves and plain previous-version text. Reviewer/manager read access is retained; the API/database reject creator-only edits from other roles.
+- Database expected-version checks for source publication and campaign saves. Saved revisions have no direct client update/delete privileges. Saves coordinate on the campaign row reserved for Phase 4 approval.
+- RLS and role validation in both application and database functions. APIs derive the workspace/user from the lease; caller-supplied scope is rejected.
+- SampleCo setup script uses real manager/creator sessions, preserving the qualified 14-versus-30-day example, ₹499 fact, expired OCT10, respectful tone and evidence requirement.
+- The same permission-test group now includes publication/revision preservation, stale edits, source/word boundaries and cross-workspace denial. `--foundation-only` preserves the Phase 1 check scope. Real execution remains blocked by missing seed/migration setup; no database emulator was introduced.
+- Vitest unit group: **19 tests passed** for source/word boundaries, duplicate identities, required metadata, invalid dates/numbers, rejected caller scope and missing current snapshots. This is input validation evidence, not live AI accuracy or the ten-draft pilot.
+- Final Phase 2 checks: **19/19 unit tests passed**, followed by successful lint, route generation, TypeScript and production build after the last error-state edits. Browser/database runtime gates remain unverified.
+- Still no implemented product AI checks, human approval, image-review workflow, issue insights or export. Those remain in Phases 3–5. No Round 3 feature has been added.

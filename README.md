@@ -4,7 +4,7 @@ A focused CodeAxis project by DIZZY DEV (Vaibhav Tandon). Review campaign conten
 
 ## Current status
 
-The shell is deployed at [brand-review-desk.vercel.app](https://brand-review-desk.vercel.app). The home page and health route returned 200; the setup route rejected unauthorised requests. The landing example remains illustrative. Phase 1 foundation code is prepared with demo entry disabled by default. Phase 0/1 gates remain open until the real service and isolation checks pass. See BUILD_LOG.md for results and blockers.
+The shell is deployed at [brand-review-desk.vercel.app](https://brand-review-desk.vercel.app). The home page and health route returned 200; the setup route rejected unauthorised requests. The landing example remains illustrative. Phase 1 foundation and Phase 2 source/campaign code are prepared with demo entry disabled by default. Runtime gates remain open until real service, permission and browser checks pass. The owner explicitly deferred service setup while continuing code preparation. See BUILD_LOG.md for measured results and blockers.
 
 ## Local setup
 
@@ -12,7 +12,7 @@ Use Node 22 and npm. Install the pinned dependencies with `npm ci`. Copy `.env.e
 
 Checks: `npm run lint`, `npm run typecheck`, `npm run build`.
 
-Install the rule-test and Playwright dependencies when their planned phases begin; Phase 0 does not install unused browser-test frameworks or add empty test suites.
+The planned rule-unit group now uses Vitest: `npm run test:rules`. Current tests cover Phase 2 input/security boundaries; they do not certify a review engine. Playwright remains for the planned complete browser journey. No CI pipeline has been added.
 
 The public `/api/health` endpoint checks the application shell only. It intentionally makes no claim that any external service is connected.
 
@@ -38,15 +38,24 @@ The supplied Supabase project is `https://uyowubvbofkahdoovfxb.supabase.co`. Its
 1. Apply `supabase/migrations/202610230002_phase1_foundation.sql` after the Phase 0 migration, using the project's SQL editor or your migration tooling. This creates workspace memberships, private asset access, demo leases and attempt counters. SQL has not been applied merely because the file exists.
 2. Add the Supabase server secret/service-role key as `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Keep `DEMO_ACCESS_ENABLED=false`. This key is restricted in application code to demo allocation; campaign operations will use the signed-in user's RLS permissions. The setup script also uses it to pre-provision accounts. No runtime route creates accounts.
 3. Run `npm run seed:demo`. Default: **24 judge workspaces plus two isolated verification workspaces**, three real Auth identities each. Fictional `example.test` addresses are confirmed through the admin API without sending email. The script persists generated credentials only in `.env.local` as `DEMO_POOL_ACCOUNTS_JSON`, and replaces smoke-user settings with the first verification creator. No secrets are printed. Re-run with the same file to resume; it preserves claimed slots. Increasing `DEMO_POOL_SIZE` appends capacity; shrinking/recycling is refused.
-4. Run the Supabase smoke check and `npm run test:permissions`. The latter uses the two verification workspaces for actual role, cross-workspace, privileged-RPC and private-file checks. Its admin key is used only for unique test-image cleanup. It does not substitute mocks for a real database or claim later approval/source tests have passed.
+4. Run the Supabase smoke check and `npm run test:permissions -- --foundation-only`. The latter uses the two verification workspaces for actual role, cross-workspace, privileged-RPC and private-file checks. Its admin key is used only for unique test-image cleanup. It does not substitute mocks for a real database or claim later approval tests have passed.
 5. Copy the server key, generated manifest and required settings privately into Vercel. For the deployed Phase 0 check, the same `PHASE0_SMOKE_TOKEN` must be present locally and in Vercel. Deploy again after environment changes. Never commit `.env.local` or paste secrets into chat.
-6. After service/permission checks pass, enable `DEMO_ACCESS_ENABLED=true`, redeploy, then verify two fresh browser sessions receive separate workspaces, roles switch correctly and refresh restores access. Only then close the Phase 1 gate and start Phase 2. Disable entry again if the gate fails.
+6. The current prepared revision includes Phase 2. Apply its migration/seed below before enabling this revision's workspace editor. After service/permission checks pass, enable `DEMO_ACCESS_ENABLED=true`, redeploy, then verify two fresh browser sessions receive separate workspaces, roles switch correctly and refresh restores access. Only then close the Phase 1 runtime gate. Disable entry again if the gate fails.
 
 The public entry reserves a pre-provisioned slot atomically, uses an opaque HttpOnly lease cookie and signs in with real Supabase Auth. An eight-hour lease is never automatically recycled. Role switching accepts only a role name and resolves the account from that lease; callers cannot supply account/workspace IDs. Mutations require the same request origin. Auth cookies are renewed with the standard Supabase SSR client and Next.js proxy.
 
 `DEMO_AI_ATTEMPT_LIMIT=5` is the free-tier setting. `GLOBAL_AI_ATTEMPT_LIMIT=0` leaves public AI calls disabled until the owner chooses an allowance from actual provider quota; setup does not assume a free-tier quota. The database reservation function counts an attempt before a future Phase 3 provider call, with conditional global/session updates in one transaction. Those limit execution tests remain part of Phase 3.
 
 Private assets allow member reads and creator/manager uploads under their own workspace/user path. Browser overwrite and deletion are denied so saved images can later support immutable content versions. Phase 5 still needs upload-byte validation and the actual image workflow; a storage policy is not that completed feature.
+
+## Phase 2 setup and verification
+
+1. Apply `supabase/migrations/202610230003_phase2_sources_campaigns.sql` after the two earlier migrations.
+2. Run `npm run seed:content` locally after `seed:demo`. It signs in as each workspace's real manager/creator, publishes six fictional SampleCo sources and saves the original 30-day/50%-savings draft. It preserves existing publications and campaigns on rerun; it does not reset used workspaces. This is setup data, not a canned check result.
+3. Run `npm run test:rules`, `npm run test:permissions`, and `npm run check`. The extended permission group checks manager-only publication, 30/31 source limits, creator-only saves, 1,500/1,501-word limits, stale saves, cross-workspace denial and preservation of old snapshots. These real-data assertions remain pending until the project is configured.
+4. In the deployed browser, change a manager source and publish, switch to creator, save/reload a campaign revision and inspect old versions. Attempt invalid dates/limits and denied roles. Keep the Phase 2 gate open until these results are recorded. No approval or AI result is produced by this phase.
+
+The API derives workspace/user scope from the active lease and validated Auth identity. Published source rows and saved copy rows have no direct client mutation grants. The save/publication functions validate permissions and expected versions in the database; saves update the same campaign row used by the planned Phase 4 approval function. A failed network response asks the user to load latest before retrying, because a committed save may outlive a lost response.
 
 ## Scope and decisions
 

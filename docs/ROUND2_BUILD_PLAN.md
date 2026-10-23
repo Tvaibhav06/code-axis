@@ -4,7 +4,7 @@
 **Participant:** Vaibhav Tandon | **Email:** 24ucc077@lnmiit.ac.in
 **Revised:** 23 October 2026, incorporating the agreed cut ladder and Phase 0 start
 **Budget:** 26 focused hours, including checks and submission preparation, plus 4 hours of repair reserve. **Total: 30 hours.**
-**Status:** Phase 0 authorised and starting. Actual implementation/check results are recorded in the application's BUILD_LOG.md; later phases remain planned.
+**Status:** Public shell verified. Phase 1/2 code is prepared and local checks pass; live-service/runtime gates remain open. The owner deferred service setup and authorised continued code preparation. BUILD_LOG.md records actual results; Phases 3–7 remain pending.
 
 ## 1. What this revision changes
 
@@ -42,23 +42,23 @@ The first 55 marks determine the build order. Tables and reusable form component
 
 ## 2. Round 1 continuity and Round 2 scope
 
-**Every status below is planned, not completed.** During implementation, replace it with Complete, Partial or Not built and a demonstration/test reference.
+**Status reflects implementation, not a completion claim.** Partial includes prepared code whose service/browser gates remain unverified. No row is Complete merely because code compiles. See BUILD_LOG.md for evidence.
 
 | ID | Round 1 promise | Round 2 status/scope | Reason or change |
 |---|---|---|---|
-| R01 | One brand; creator, manager and reviewer | Planned: authenticated identities, memberships and workspace isolation | Retained; pre-seeded accounts replace signup |
-| R02 | Up to 30 short rules/facts, owners, sources, dates, logo and palette | Planned: simple form/list and published immutable snapshot | Retained; manual structured entry |
-| R03 | English text up to 1,500 words; optional PNG/JPG up to 5 MB | Planned: campaign form and private upload | Retained; server and browser limits |
-| R04 | Exact terminology and fact checks | Planned: terminology, supported trial/price facts and expiry | Retained; no claim of general fact verification |
-| R05 | AI tone, messaging and unsupported-claim suggestions | Planned: one bounded real Gemini request per run | Retained; no agents, cache or automatic retry |
-| R06 | Three finding categories, quotes, sources, suggested fixes | Planned: Source conflict / Evidence missing / Style suggestion cards | Retained; source/span validation |
-| R07 | Comments, disputes, revisions and independent approval | Planned: event list, numbered snapshots and review actions | Retained; plain previous/current text, no diff engine |
-| R08 | Content/source changes invalidate approval | Planned: row-locked approve function and validity checks on read | Already in submitted PDF; not newly moved from Round 3 |
-| R09 | Image checklist, alt text, selected-pair contrast, readability | Planned: image/approved assets, checklist, two colour inputs | Retained; no automated logo detection or pixel-picker |
-| R10 | Recurring confirmed issues, disputed rules, clarification requests | Planned: deduplicated table and clarification event/manager note | Already in submitted PDF; no charts or ticketing system |
-| R11 | Approved-material handoff and decision trail | Planned: one HTML record with copy, alt text, image reference and decisions | Export simplified; no bundled image archive |
-| R12 | Private content, AI disclosure/off switch and manual recovery | Planned: RLS/private Storage and explicit manual-review checklist | Retained; fictional demo data |
-| R13 | Keyboard use, labelled controls and text statuses | Planned: native/reusable controls and keyboard walkthrough | Retained; no full-accessibility certification claim |
+| R01 | One brand; creator, manager and reviewer | Partial: identity/lease/RLS foundation and pre-seed code prepared | Real seeded-account/isolation tests pending setup |
+| R02 | Up to 30 short rules/facts, owners, sources, dates, logo and palette | Partial: source editor, metadata and immutable publication code prepared | 30/31 boundary unit checks pass; persistence and Phase 5 assets pending |
+| R03 | English text up to 1,500 words; optional PNG/JPG up to 5 MB | Partial: campaign editor/word limit prepared; private bucket migration prepared | Word-boundary unit checks pass; real save and image workflow pending |
+| R04 | Exact terminology and fact checks | Not built: Phase 3 | No claim of general fact verification |
+| R05 | AI tone, messaging and unsupported-claim suggestions | Not built: Phase 3; separate 3.6 model connectivity fixture passed | A smoke fixture is not the product review engine |
+| R06 | Three finding categories, quotes, sources, suggested fixes | Not built: Phase 3 | Planned source/span validation remains required |
+| R07 | Comments, disputes, revisions and independent approval | Partial: numbered copy/history code prepared; review actions not built | Real version preservation tests pending; decisions remain Phase 4 |
+| R08 | Content/source changes invalidate approval | Not built: Phase 4 | Already in submitted PDF; not newly moved from Round 3 |
+| R09 | Image checklist, alt text, selected-pair contrast, readability | Not built: Phase 5 | No automated logo detection or pixel-picker |
+| R10 | Recurring confirmed issues, disputed rules, clarification requests | Not built: Phase 5 | No authorised cut has been activated |
+| R11 | Approved-material handoff and decision trail | Not built: Phase 5 HTML record | No bundled image archive |
+| R12 | Private content, AI disclosure/off switch and manual recovery | Partial: private-access code and disclosure prepared; manual recovery not built | Actual private-policy tests pending setup; fictional data only |
+| R13 | Keyboard use, labelled controls and text statuses | Partial: native labelled controls/statuses prepared | Deployed keyboard/unassisted walkthrough pending |
 
 **Changes to state explicitly in the updated PDF:**
 

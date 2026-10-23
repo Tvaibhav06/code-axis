@@ -1,7 +1,9 @@
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import { demoManifestSchema, type DemoRole } from "../src/lib/demo-schema";
+import { samplecoDraft, samplecoSources } from "../src/lib/sampleco";
 
 loadEnvConfig(process.cwd());
 let failures = 0;
@@ -85,6 +87,48 @@ async function main() {
     await creator.storage.from("brand-assets").remove([path]);
     const immutable = await creator.storage.from("brand-assets").download(path);
     check("Stored images cannot be deleted behind a content version", !immutable.error && !!immutable.data);
+    if (!process.argv.includes("--foundation-only")) {
+      const workspace = await manager.from("workspaces").select("rulebook_version").eq("id", workspaceId).single();
+      if (workspace.error) throw new Error("source setup");
+      const expected = workspace.data.rulebook_version;
+      const deniedPublish = await creator.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected, p_entries: samplecoSources });
+      check("Creator cannot publish approved sources", deniedPublish.error?.code === "42501");
+      const published = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected, p_entries: samplecoSources });
+      check("Manager publishes a new source snapshot", !published.error && published.data?.[0]?.version === expected + 1);
+      if (published.error || !published.data?.[0]?.id) throw new Error("source publication");
+      const firstBookId = published.data[0].id;
+      const staleSource = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected, p_entries: samplecoSources });
+      check("Stale source publication is rejected", staleSource.error?.code === "40001");
+      const thirty = [...samplecoSources, ...Array.from({ length: 24 }, () => ({ ...samplecoSources[4], id: randomUUID() }))];
+      const fullBook = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected + 1, p_entries: thirty });
+      check("Database accepts 30 source entries", !fullBook.error && fullBook.data?.[0]?.version === expected + 2);
+      const overBook = await manager.rpc("publish_rulebook", { p_workspace: workspaceId, p_expected_version: expected + 2, p_entries: [...thirty, { ...samplecoSources[4], id: randomUUID() }] });
+      check("Database rejects 31 source entries", overBook.error?.code === "22023");
+      const oldBook = await creator.from("rulebooks").select("entries,version").eq("id", firstBookId).single();
+      check("Previous source snapshot remains unchanged and readable", !oldBook.error && oldBook.data?.version === expected + 1 && isDeepStrictEqual(oldBook.data.entries, samplecoSources));
+      const bookMutation = await manager.from("rulebooks").update({ entries: samplecoSources }).eq("id", firstBookId);
+      check("Published source rows cannot be edited directly", bookMutation.error?.code === "42501");
+      const args = { p_workspace: workspaceId, p_campaign: null, p_expected_version: 0, p_title: samplecoDraft.title,
+        p_purpose: samplecoDraft.purpose, p_audience: samplecoDraft.audience, p_body: samplecoDraft.body };
+      const deniedDraft = await reviewer.rpc("save_campaign", args);
+      check("Reviewer cannot create a creator's draft", deniedDraft.error?.code === "42501");
+      const created = await creator.rpc("save_campaign", args);
+      check("Creator saves campaign version 1", !created.error && created.data?.[0]?.version === 1);
+      const campaignId = created.data?.[0]?.campaign_id;
+      if (created.error || !campaignId) throw new Error("campaign save");
+      const revised = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 1, p_body: "Try SampleCo free for 14 days." });
+      check("Creator saves numbered version 2", !revised.error && revised.data?.[0]?.version === 2);
+      const history = await creator.from("campaign_versions").select("version,body").eq("campaign_id", campaignId).order("version");
+      check("Reload preserves both immutable content versions", !history.error && history.data?.length === 2 && history.data[0].body === samplecoDraft.body && history.data[1].body === "Try SampleCo free for 14 days.");
+      const staleDraft = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 1 });
+      check("Stale campaign saves are rejected", staleDraft.error?.code === "40001");
+      const foreignDraft = await otherCreator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 2 });
+      check("Another workspace cannot revise the campaign", foreignDraft.error?.code === "42501");
+      const tooLong = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 2, p_body: Array(1501).fill("sample").join(" ") });
+      check("Database rejects 1,501 words", tooLong.error?.code === "22023");
+      const boundary = await creator.rpc("save_campaign", { ...args, p_campaign: campaignId, p_expected_version: 2, p_body: Array(1500).fill("sample").join(" ") });
+      check("Database accepts 1,500 words", !boundary.error && boundary.data?.[0]?.version === 3);
+    }
   } finally {
     if (uploaded) {
       const cleanup = await cleanupClient.storage.from("brand-assets").remove([path]);
@@ -92,8 +136,8 @@ async function main() {
     }
     await Promise.all([creator, reviewer, manager, otherCreator].map((client) => client.auth.signOut({ scope: "local" })));
   }
-  console.log(`${failures === 0 ? "PASS" : "FAIL"} Phase 1 permission checks (${failures} failed).`);
-  console.log("Source editing, approval and AI-limit execution checks belong to their later planned phases; they are not claimed verified here.");
+  console.log(`${failures === 0 ? "PASS" : "FAIL"} ${process.argv.includes("--foundation-only") ? "Phase 1" : "Phase 1/2"} permission checks (${failures} failed).`);
+  console.log("Approval and AI-limit execution checks belong to their later planned phases; they are not claimed verified here.");
   process.exitCode = failures ? 1 : 0;
 }
 

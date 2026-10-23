@@ -15,7 +15,9 @@
     "smoke:services": "tsx scripts/smoke-services.ts",
     "smoke:deployment": "tsx scripts/smoke-deployment.ts",
     "seed:demo": "tsx scripts/seed-demo-pool.ts",
-    "test:permissions": "tsx scripts/test-permissions.ts"
+    "seed:content": "tsx scripts/seed-content.ts",
+    "test:permissions": "tsx scripts/test-permissions.ts",
+    "test:rules": "vitest run"
   },
   "dependencies": {
     "@next/env": "16.4.2",
@@ -34,6 +36,7 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.2",
     "tsx": "4.23.15",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
   }
 }

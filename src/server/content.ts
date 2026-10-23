@@ -1,0 +1,46 @@
+import "server-only";
+import { deskStateSchema, publishSourcesSchema, saveCampaignSchema } from "@/lib/content-schema";
+import { DemoError, requireDemoContext } from "./demo";
+
+export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>) {
+  const { client, lease } = context;
+  const [workspace, rulebooks, campaigns] = await Promise.all([
+    client.from("workspaces").select("rulebook_version").eq("id", lease.workspace_id).single(),
+    client.from("rulebooks").select("id,version,entries,published_at,published_by").eq("workspace_id", lease.workspace_id).order("version", { ascending: false }),
+    client.from("campaigns").select("id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at)")
+      .eq("workspace_id", lease.workspace_id).order("updated_at", { ascending: false }),
+  ]);
+  if (workspace.error || rulebooks.error || campaigns.error) throw new DemoError(503, "The source library or campaigns could not load. Please retry after setup is complete.");
+  const state = deskStateSchema.safeParse({ rulebookVersion: workspace.data.rulebook_version, rulebooks: rulebooks.data, campaigns: campaigns.data });
+  if (!state.success) throw new DemoError(503, "Saved workspace data could not be read safely.");
+  return state.data;
+}
+
+function mutationError(code?: string): never {
+  if (code === "40001") throw new DemoError(409, "This version changed. Load the latest workspace before saving again.");
+  if (code === "42501") throw new DemoError(403, "Your role cannot make this change.");
+  if (["22023", "22007", "22008", "22P02", "23514"].includes(code || "")) throw new DemoError(400, "Check the fields, dates and size limits before saving.");
+  throw new DemoError(503, "The save could not be confirmed. Load the latest workspace before retrying.");
+}
+
+export async function publishSources(context: Awaited<ReturnType<typeof requireDemoContext>>, input: unknown) {
+  if (context.role !== "manager") throw new DemoError(403, "Only the manager can publish approved sources.");
+  const parsed = publishSourcesSchema.safeParse(input);
+  if (!parsed.success) throw new DemoError(400, parsed.error.issues[0]?.message || "Check the source fields.");
+  const result = await context.client.rpc("publish_rulebook", { p_workspace: context.lease.workspace_id,
+    p_expected_version: parsed.data.expectedVersion, p_entries: parsed.data.entries });
+  if (result.error) mutationError(result.error.code);
+  return result.data;
+}
+
+export async function saveCampaign(context: Awaited<ReturnType<typeof requireDemoContext>>, input: unknown) {
+  if (context.role !== "creator") throw new DemoError(403, "Only the creator can save campaign drafts.");
+  const parsed = saveCampaignSchema.safeParse(input);
+  if (!parsed.success) throw new DemoError(400, parsed.error.issues[0]?.message || "Check the campaign fields.");
+  const data = parsed.data;
+  const result = await context.client.rpc("save_campaign", { p_workspace: context.lease.workspace_id,
+    p_campaign: data.campaignId, p_expected_version: data.expectedVersion,
+    p_title: data.title, p_purpose: data.purpose, p_audience: data.audience, p_body: data.body });
+  if (result.error) mutationError(result.error.code);
+  return result.data;
+}
