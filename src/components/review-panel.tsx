@@ -5,14 +5,15 @@ import { runSchema, categoryLabels, type CheckRun } from "@/lib/review-schema";
 import type { Campaign, DeskState } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
 import { HumanReview } from "./human-review";
-
-export async function reviewPost(action: string, input: unknown) {
-  let response;
-  try { response = await fetch(`/api/review/${action}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input), signal: AbortSignal.timeout(55_000) }); }
-  catch { throw new Error("The action could not be confirmed. Load latest before retrying; a check may have used an attempt."); }
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.ok) throw new Error(data?.error || "The action could not be confirmed. Load latest before retrying.");
-  return data.result;
+import { reviewPost } from "@/lib/review-client";
+function failureMessage(code: string | null) {
+  if (!code) return "AI was switched off.";
+  if (code === "session_or_global_allowance_unavailable" || code === "provider_quota") return "The AI allowance is unavailable or exhausted. Use exact checks and the manual reviewer checklist.";
+  if (code === "provider_timeout") return "The AI provider did not reply in time. You can explicitly retry, choose the fallback, or switch AI off.";
+  if (code.startsWith("provider_http_")) return "The AI provider is unavailable. Choose the fallback explicitly or continue with manual review.";
+  if (code === "input_too_large_for_ai") return "The copy and sources are too large for this AI check. Shorten them or use manual review.";
+  if (["invalid_or_unavailable_output", "incomplete_output"].includes(code)) return "The AI response could not be verified. It has not been treated as a clean result.";
+  return "AI checks could not complete with the current service settings. Continue with exact checks and manual review.";
 }
 export function ReviewPanel({ campaign, state, role, reload }: { campaign: Campaign; state: DeskState; role: DemoRole; reload: () => Promise<void> }) {
   const [runs, setRuns] = useState<CheckRun[]>([]);
@@ -48,14 +49,14 @@ export function ReviewPanel({ campaign, state, role, reload }: { campaign: Campa
     <p>Checks use saved copy and published sources. Editing the draft above does not change this review until you save.</p>
     {role === "creator" && <fieldset disabled={busy || loading || !state.rulebooks.length} className="plain-fieldset"><legend>Check settings</legend>
       <label className="check-label"><input type="checkbox" checked={ai} onChange={(e) => setAi(e.target.checked)} />Include a real AI check</label>
-      {ai && <><label>Model<select value={model} onChange={(e) => setModel(e.target.value)}><option value="primary">Primary (availability pending)</option><option value="fallback">Fallback (select explicitly)</option></select></label>
+      {ai && <><label>Model<select value={model} onChange={(e) => setModel(e.target.value)}><option value="primary">Configured primary</option><option value="fallback">Configured fallback (select explicitly)</option></select></label><p className="help-text">No automatic retry or model switch. If the provider is unavailable, explicitly select the fallback or switch AI off for manual review.</p>
         <label className="check-label"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />I am using fictional data. Google may use free-tier inputs and responses to improve its products.</label></>}
       <button className="button" disabled={ai && !consent} onClick={() => action("check", { ai, consent, model })}>{busy ? "Working…" : "Run checks"}</button>
       <p className="help-text">Five free-tier attempts per demo session, subject to the shared quota. Provider failures count after an attempt is reserved. AI off keeps exact checks and requires manual review.</p></fieldset>}
     {loading && <p role="status">Loading saved checks…</p>}{error && <p role="alert" className="form-error">{error}</p>}
     {!loading && !current && <p>No current check. Run checks again after changing copy or sources.</p>}
-    {current && <><p role="status"><strong>{current.status === "complete" ? "AI response validated" : "Manual review required"}</strong> · {current.model || "AI off"} · {current.created_at}</p>
-      {current.status !== "complete" && <p className="form-error">{current.error_code || "AI was switched off."} Exact results below remain available. This is not an AI pass.</p>}
+    {current && <><p role="status"><strong>{current.status === "complete" ? "AI check completed" : "Manual review required"}</strong> · {current.model || "AI off"} · {current.created_at}</p>
+      {current.status !== "complete" && <p className="form-error">{failureMessage(current.error_code)} Exact results below remain available. This is not an AI pass.</p>}
       {current.findings.length === 0 && <p>No issues were returned by the checks that ran. A reviewer must still approve the campaign.</p>}
       <ul className="source-list">{current.findings.map((f) => <li key={f.id}><strong>{categoryLabels[f.category]}</strong> · {f.origin} · {f.blocking ? "Blocking until corrected or dismissed with a reason" : "Advisory"}
         <blockquote>{f.quote}</blockquote><p>{f.explanation}</p><small>Source: {state.rulebooks[0]?.entries.find((s) => s.id === f.rule_id)?.title || f.rule_id}</small>

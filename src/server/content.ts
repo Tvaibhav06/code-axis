@@ -6,8 +6,8 @@ export async function getDeskState(context: Awaited<ReturnType<typeof requireDem
   const { client, lease } = context;
   const [workspace, rulebooks, campaigns] = await Promise.all([
     client.from("workspaces").select("rulebook_version").eq("id", lease.workspace_id).single(),
-    client.from("rulebooks").select("id,version,entries,published_at,published_by").eq("workspace_id", lease.workspace_id).order("version", { ascending: false }),
-    client.from("campaigns").select("id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at)")
+    client.from("rulebooks").select("id,version,entries,published_at,published_by,logo_path,palette").eq("workspace_id", lease.workspace_id).order("version", { ascending: false }),
+    client.from("campaigns").select("id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background)")
       .eq("workspace_id", lease.workspace_id).order("updated_at", { ascending: false }),
   ]);
   if (workspace.error || rulebooks.error || campaigns.error) throw new DemoError(503, "The source library or campaigns could not load. Please retry after setup is complete.");
@@ -27,8 +27,8 @@ export async function publishSources(context: Awaited<ReturnType<typeof requireD
   if (context.role !== "manager") throw new DemoError(403, "Only the manager can publish approved sources.");
   const parsed = publishSourcesSchema.safeParse(input);
   if (!parsed.success) throw new DemoError(400, parsed.error.issues[0]?.message || "Check the source fields.");
-  const result = await context.client.rpc("publish_rulebook", { p_workspace: context.lease.workspace_id,
-    p_expected_version: parsed.data.expectedVersion, p_entries: parsed.data.entries });
+  const result = await context.client.rpc("publish_brand_sources", { p_workspace: context.lease.workspace_id,
+    p_expected_version: parsed.data.expectedVersion, p_entries: parsed.data.entries, p_logo: parsed.data.logoPath, p_palette: parsed.data.palette });
   if (result.error) mutationError(result.error.code);
   return result.data;
 }
@@ -38,9 +38,10 @@ export async function saveCampaign(context: Awaited<ReturnType<typeof requireDem
   const parsed = saveCampaignSchema.safeParse(input);
   if (!parsed.success) throw new DemoError(400, parsed.error.issues[0]?.message || "Check the campaign fields.");
   const data = parsed.data;
-  const result = await context.client.rpc("save_campaign", { p_workspace: context.lease.workspace_id,
+  const result = await context.client.rpc("save_campaign_with_asset", { p_workspace: context.lease.workspace_id,
     p_campaign: data.campaignId, p_expected_version: data.expectedVersion,
-    p_title: data.title, p_purpose: data.purpose, p_audience: data.audience, p_body: data.body });
+    p_title: data.title, p_purpose: data.purpose, p_audience: data.audience, p_body: data.body,
+    p_image: data.imagePath, p_alt: data.altText, p_review: data.imageReview, p_foreground: data.foreground, p_background: data.background });
   if (result.error) mutationError(result.error.code);
   return result.data;
 }

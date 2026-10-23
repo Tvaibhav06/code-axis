@@ -10,12 +10,13 @@ type Context = Awaited<ReturnType<typeof requireDemoContext>>;
 
 export async function getReviewState(context: Context, campaignId: string) {
   const runs = await getRuns(context, campaignId);
-  const [events, approval] = await Promise.all([
-    context.client.from("review_events").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("created_at", { ascending: true }),
+  const [events, approval, approvals] = await Promise.all([
+    context.client.from("review_events").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("created_at", { ascending: true }).order("id", { ascending: true }),
     context.client.rpc("approval_state", { p_campaign: campaignId }),
+    context.client.from("approvals").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("approved_at", { ascending: false }).order("id", { ascending: false }),
   ]);
-  const parsed = reviewViewSchema.safeParse({ runs, events: events.data, approval: approval.data });
-  if (events.error || approval.error || !parsed.success) throw new DemoError(503, "Review/approval history is unavailable. Check the Phase 4 migration and reload.");
+  const parsed = reviewViewSchema.safeParse({ runs, events: events.data, approval: approval.data, approvals: approvals.data });
+  if (events.error || approval.error || approvals.error || !parsed.success) throw new DemoError(503, "Review/approval history is unavailable. Check the Phase 4 migration and reload.");
   return parsed.data;
 }
 
@@ -49,7 +50,7 @@ export async function approve(context: Context, input: unknown) {
 export async function getRuns(context: Context, campaignId: string) {
   if (!z.uuid().safeParse(campaignId).success) throw new DemoError(400, "Choose a saved campaign.");
   const { data, error } = await context.client.from("check_runs").select("*,findings(*)").eq("workspace_id", context.lease.workspace_id)
-    .eq("campaign_id", campaignId).order("created_at", { ascending: false });
+    .eq("campaign_id", campaignId).order("created_at", { ascending: false }).order("id", { ascending: false });
   const parsed = z.array(runSchema).safeParse(data);
   if (error || !parsed.success) throw new DemoError(503, "Review history could not load. Check that the review migration has been applied.");
   return parsed.data;
@@ -69,6 +70,7 @@ export async function checkCampaign(context: Context, input: unknown) {
   if (!book) throw new DemoError(400, "Publish approved sources first.");
   if (request.ai && !request.consent) throw new DemoError(400, "Confirm fictional-data consent or switch AI off.");
   const exact = exactChecks(version.body, book.entries);
+  if (exact.findings.length > 138) throw new DemoError(400, "This copy produces too many exact issues for one review. Correct the repeated terminology/fact conflicts or split the campaign before re-checking.");
   let findings = exact.findings;
   let status = "manual";
   let model: string | null = null;
@@ -104,5 +106,6 @@ export async function applySuggestion(context: Context, input: unknown) {
   const finding = run?.findings.find((f) => f.id === parsed.data.findingId);
   if (!finding?.suggestion) throw new DemoError(409, "This suggestion is no longer current.");
   return saveCampaign(context, { campaignId: campaign.id, expectedVersion: campaign.current_version, title: version.title,
-    purpose: version.purpose, audience: version.audience, body: applyLiteralSuggestion(version.body, finding.quote, finding.suggestion) });
+    purpose: version.purpose, audience: version.audience, body: applyLiteralSuggestion(version.body, finding.quote, finding.suggestion),
+    imagePath: version.image_path, altText: version.alt_text, imageReview: version.image_review, foreground: version.foreground, background: version.background });
 }

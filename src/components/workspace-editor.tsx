@@ -4,6 +4,9 @@ import { useState, type FormEvent } from "react";
 import { deskStateSchema, sourceKinds, wordCount, type Campaign, type CampaignInput, type DeskState, type SourceEntry } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
 import { ReviewPanel } from "./review-panel";
+import { AssetPreview, AssetUpload } from "./image-controls";
+import { contrastRatio, emptyImageReview } from "@/lib/image-schema";
+import { IssuesPanel } from "./issues-panel";
 
 const kindLabels = { terminology: "Approved name", trial_days: "Trial days", monthly_price: "Monthly price (INR)",
   offer: "Offer/code", tone: "Tone guidance", evidence: "Evidence requirement" };
@@ -28,6 +31,9 @@ function SourceList({ entries }: { entries: SourceEntry[] }) {
 
 function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: boolean; reload: () => Promise<void> }) {
   const [entries, setEntries] = useState<SourceEntry[]>(data.rulebooks[0]?.entries || []);
+  const [logoPath, setLogoPath] = useState<string | null>(data.rulebooks[0]?.logo_path || null);
+  const [palette, setPalette] = useState((data.rulebooks[0]?.palette || []).join(", "));
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   function update(index: number, values: Partial<SourceEntry>) {
@@ -36,7 +42,7 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
   async function publish(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      await post("sources", { expectedVersion: data.rulebookVersion, entries: entries.map((entry) => ({ ...entry, aliases: entry.aliases.map((alias) => alias.trim()).filter(Boolean) })) });
+      await post("sources", { expectedVersion: data.rulebookVersion, logoPath, palette: palette.split(",").map((s) => s.trim()).filter(Boolean), entries: entries.map((entry) => ({ ...entry, aliases: entry.aliases.map((alias) => alias.trim()).filter(Boolean) })) });
       try { await reload(); } catch { throw new Error("The source version was published, but the screen could not refresh. Use Load latest."); }
     }
     catch (error) { setError(error instanceof Error ? error.message : "Publication failed."); }
@@ -47,7 +53,11 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
     <p>Approved facts and guidance used to review SampleCo campaigns. Past published versions stay readable.</p>
     {editable ? <form onSubmit={publish}>
       <p className="help-text">Editing changes your draft only. Publish to create a new source version. Switching roles or leaving the page discards unpublished edits.</p>
-      <fieldset disabled={busy} className="plain-fieldset"><legend className="visually-hidden">Source entries</legend>
+      <fieldset disabled={busy || uploading} className="plain-fieldset"><legend className="visually-hidden">Source entries</legend>
+        <AssetUpload label="Approved brand logo (optional for text-only campaigns)" disabled={busy} onBusyChange={setUploading} onUploaded={setLogoPath} />
+        <AssetPreview key={logoPath} path={logoPath} alt="Manager-approved brand logo" />
+        {logoPath && <button type="button" className="text-button" onClick={() => setLogoPath(null)}>Remove logo from this draft</button>}
+        <label>Approved palette (up to 6 comma-separated hex colours)<input value={palette} onChange={(e) => setPalette(e.target.value)} placeholder="#152238, #ffffff" /></label>
         {entries.map((entry, index) => <fieldset className="source-form" key={entry.id}>
           <legend>Source {index + 1}</legend><div className="form-grid">
             <label>Type<select value={entry.kind} onChange={(event) => update(index, { kind: event.target.value as SourceEntry["kind"] })}>
@@ -66,16 +76,19 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
         }])}>Add source ({entries.length}/30)</button>
           <button type="submit" className="button" disabled={!entries.length}>{busy ? "Publishing…" : `Publish source version ${data.rulebookVersion + 1}`}</button></div>
       </fieldset>
-    </form> : data.rulebooks[0] ? <SourceList entries={data.rulebooks[0].entries} /> : <p>No sources have been published. Switch to the manager to add them.</p>}
+    </form> : data.rulebooks[0] ? <><AssetPreview path={data.rulebooks[0].logo_path} alt="Approved brand logo" /><p>Approved palette: {data.rulebooks[0].palette.join(", ") || "Not set"}</p><SourceList entries={data.rulebooks[0].entries} /></> : <p>No sources have been published. Switch to the manager to add them.</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {data.rulebooks.length > 1 && <details className="history"><summary>Past published source versions</summary>{data.rulebooks.slice(1).map((book) => <details key={book.id}><summary>Version {book.version} · {book.published_at}</summary><SourceList entries={book.entries} /></details>)}</details>}
   </section>;
 }
 
-function CampaignEditor({ campaign, editable, reload }: { campaign?: Campaign; editable: boolean; reload: (id?: string) => Promise<void> }) {
+function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campaign; editable: boolean; reload: (id?: string) => Promise<void>; book?: DeskState["rulebooks"][number] }) {
   const latest = campaign?.campaign_versions.find((item) => item.version === campaign.current_version);
   const [draft, setDraft] = useState<CampaignInput>({ campaignId: campaign?.id || null, expectedVersion: campaign?.current_version || 0,
-    title: latest?.title || "", purpose: latest?.purpose || "", audience: latest?.audience || "", body: latest?.body || "" });
+    title: latest?.title || "", purpose: latest?.purpose || "", audience: latest?.audience || "", body: latest?.body || "",
+    imagePath: latest?.image_path || null, altText: latest?.alt_text || "", imageReview: latest?.image_review || emptyImageReview,
+    foreground: latest?.foreground || "#000000", background: latest?.background || "#ffffff" });
+  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function save(event: FormEvent) {
@@ -89,25 +102,33 @@ function CampaignEditor({ campaign, editable, reload }: { campaign?: Campaign; e
   }
   const versions = campaign?.campaign_versions.slice().sort((a, b) => b.version - a.version) || [];
   return <section className="editor-panel" aria-labelledby="campaign-heading">
-    <h2 id="campaign-heading">{latest?.title || "New campaign"} {campaign && <span className="version-label">Version {campaign.current_version} · {campaign.status.replaceAll("_", " ")}</span>}</h2>
-    {editable ? <form onSubmit={save}><fieldset disabled={busy} className="plain-fieldset"><legend className="visually-hidden">Campaign draft</legend>
+    <h2 id="campaign-heading">{latest?.title || "New campaign"} {campaign && <span className="version-label">Version {campaign.current_version} · {campaign.status === "approved" ? "approval recorded; see current status below" : campaign.status.replaceAll("_", " ")}</span>}</h2>
+    {editable ? <form onSubmit={save}><fieldset disabled={busy || uploading} className="plain-fieldset"><legend className="visually-hidden">Campaign draft</legend>
       <div className="form-grid"><label className="full-width">Campaign title<input required maxLength={120} value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
         <label>Purpose<input required maxLength={300} value={draft.purpose} onChange={(event) => setDraft({ ...draft, purpose: event.target.value })} /></label>
         <label>Audience<input required maxLength={300} value={draft.audience} onChange={(event) => setDraft({ ...draft, audience: event.target.value })} /></label>
         <label className="full-width">English campaign text<textarea required rows={9} value={draft.body} aria-describedby="word-count" onChange={(event) => setDraft({ ...draft, body: event.target.value })} /></label></div>
       <p id="word-count" className={wordCount(draft.body) > 1500 ? "form-error" : "help-text"}>{wordCount(draft.body)} / 1,500 words</p>
+      <AssetUpload label="Optional campaign image" disabled={busy} onBusyChange={setUploading} onUploaded={(path) => setDraft((previous) => ({ ...previous, imagePath: path, imageReview: { ...emptyImageReview } }))} />
+      {draft.imagePath && <><div className="image-comparison"><div><h3>Campaign image</h3><AssetPreview key={draft.imagePath} path={draft.imagePath} alt={draft.altText || "Campaign image awaiting alternative text"} /></div><div><h3>Approved logo and palette</h3><AssetPreview key={book?.logo_path} path={book?.logo_path || null} alt="Approved brand logo" /><p>{book?.palette.join(", ") || "Ask the manager to publish a logo and palette."}</p></div></div>
+        <label>Alternative text (required for approval)<textarea maxLength={500} value={draft.altText} onChange={(e) => setDraft({ ...draft, altText: e.target.value })} /></label>
+        <fieldset><legend>Manual image review</legend>{(["logo", "spacing", "readability", "palette"] as const).map((key) => <label key={key} className="check-label"><input type="checkbox" checked={draft.imageReview[key]} onChange={(e) => setDraft({ ...draft, imageReview: { ...draft.imageReview, [key]: e.target.checked } })} />{({ logo: "Logo matches the approved asset", spacing: "Logo spacing follows the published guidance", readability: "All image text is readable", palette: "Colours follow the approved palette" })[key]}</label>)}</fieldset>
+        <div className="form-grid"><label>Text colour<input type="color" value={draft.foreground} onChange={(e) => setDraft({ ...draft, foreground: e.target.value })} /></label><label>Background colour<input type="color" value={draft.background} onChange={(e) => setDraft({ ...draft, background: e.target.value })} /></label></div>
+        <p>Selected pair: {contrastRatio(draft.foreground, draft.background).toFixed(2)}:1 · {contrastRatio(draft.foreground, draft.background) >= 4.5 ? "Meets 4.5:1 for normal text" : "Below 4.5:1"}</p><p className="help-text">Select the actual text/background colours yourself. This checks one colour pair, not the whole image or full accessibility. Logo and readability checks are manual.</p>
+        <button type="button" className="text-button" onClick={() => setDraft({ ...draft, imagePath: null, altText: "", imageReview: { ...emptyImageReview } })}>Remove image from this draft</button></>}
       <div className="form-actions"><button type="submit" className="button">{busy ? "Saving…" : `Save version ${draft.expectedVersion + 1}`}</button></div>
       <p className="help-text">Save explicitly to create a new version. Switching campaigns, roles or leaving this page discards unsaved edits.</p>
     </fieldset></form> : latest ? <div><p><strong>Purpose:</strong> {latest.purpose}<br /><strong>Audience:</strong> {latest.audience}</p><pre className="copy-preview">{latest.body}</pre><p>Only this campaign&apos;s creator can save revisions.</p></div> : <p>No campaign is selected. The creator can add a draft.</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
+    {!editable && latest?.image_path && <><div className="image-comparison"><div><h3>Saved campaign image</h3><AssetPreview path={latest.image_path} alt={latest.alt_text || "Alternative text missing"} /></div><div><h3>Approved logo</h3><AssetPreview path={book?.logo_path || null} alt="Approved brand logo" /><p>Palette: {book?.palette.join(", ") || "Not set"}</p></div></div><p>Alternative text: {latest.alt_text || "Missing"}</p><p>Saved manual checks: {Object.entries(latest.image_review).map(([k, v]) => `${k}: ${v ? "checked" : "missing"}`).join("; ")}</p><p>Selected pair: {latest.foreground} / {latest.background} · {contrastRatio(latest.foreground, latest.background).toFixed(2)}:1</p></>}
     {versions.length > 1 && <details className="history"><summary>Previous saved versions</summary>{versions.slice(1).map((version) => <details key={version.id}><summary>Version {version.version} · {version.title}</summary><p>{version.purpose} · {version.audience}</p><pre className="copy-preview">{version.body}</pre></details>)}</details>}
   </section>;
 }
 
-export function WorkspaceEditor({ initialState, role, userId }: { initialState: DeskState; role: DemoRole; userId: string }) {
+export function WorkspaceEditor({ initialState, role, userId, initialCampaignId }: { initialState: DeskState; role: DemoRole; userId: string; initialCampaignId?: string }) {
   const [state, setState] = useState(initialState);
   const [view, setView] = useState<"campaigns" | "sources">(role === "manager" ? "sources" : "campaigns");
-  const [selected, setSelected] = useState(initialState.campaigns[0]?.id || "");
+  const [selected, setSelected] = useState(initialState.campaigns.find((c) => c.id === initialCampaignId)?.id || initialState.campaigns[0]?.id || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   async function reload(id?: string) {
@@ -129,8 +150,9 @@ export function WorkspaceEditor({ initialState, role, userId }: { initialState: 
     {message && <p role="status">{message}</p>}{error && <p role="alert" className="form-error">{error}</p>}
     {view === "sources" ? <SourcesEditor key={`sources-${state.rulebookVersion}`} data={state} editable={role === "manager"} reload={reload} /> : <>
       <div className="campaign-picker"><label htmlFor="campaign-picker">Saved campaign</label><select id="campaign-picker" value={selected} onChange={(event) => setSelected(event.target.value)}><option value="">New campaign</option>{state.campaigns.map((item) => <option key={item.id} value={item.id}>{item.campaign_versions.find((version) => version.version === item.current_version)?.title} · v{item.current_version}</option>)}</select></div>
-      <CampaignEditor key={`${selected}-${campaign?.current_version || 0}`} campaign={campaign} editable={role === "creator" && (!campaign || campaign.creator_id === userId)} reload={reload} />
+      <CampaignEditor key={`${selected}-${campaign?.current_version || 0}-${state.rulebookVersion}`} book={state.rulebooks[0]} campaign={campaign} editable={role === "creator" && (!campaign || campaign.creator_id === userId)} reload={reload} />
       {campaign && <ReviewPanel key={`review-${campaign.id}-${campaign.current_version}-${state.rulebookVersion}`} campaign={campaign} state={state} role={role} reload={reload} />}
     </>}
+    <IssuesPanel key={`${state.rulebookVersion}-${state.campaigns.map((c) => `${c.id}-${c.current_version}-${c.status}`).join()}`} sources={state.rulebooks[0]?.entries || []} />
   </div>;
 }

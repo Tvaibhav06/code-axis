@@ -27,7 +27,7 @@ export function exactChecks(body: string, sources: SourceEntry[]) {
         /\b(\d{1,5})[\s-]*days?\s+(?:free|trial)\b/gi];
       quotes = patterns.flatMap((pattern) => Array.from(body.matchAll(pattern), (match) => ({ quote: match[0], value: Number(match[1]) })));
     } else if (source.kind === "monthly_price") {
-      quotes = Array.from(body.matchAll(/(?:₹|INR\s*|Rs\.?\s*)(\d+(?:,\d{3})*)\s*(?:\/\s*(?:month|mo)\b|per\s+month\b|a\s+month\b)/gi), (match) => ({ quote: match[0], value: Number(match[1].replaceAll(",", "")) }));
+      quotes = Array.from(body.matchAll(/(?:₹\s*|INR\s*|Rs\.?\s*)(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:\/\s*(?:month|mo)\b|per\s+month\b|a\s+month\b)/gi), (match) => ({ quote: match[0], value: Number(match[1].replaceAll(",", "")) }));
     } else if (source.kind === "offer") quotes = literalMatches(body, source.value).map((quote) => ({ quote }));
     else quotes = [{ quote: body.slice(0, Math.min(body.length, 180)) }];
     if (!quotes.length) continue;
@@ -39,7 +39,7 @@ export function exactChecks(body: string, sources: SourceEntry[]) {
         add(source, "source_conflict", item.quote, `The approved brand name is ${source.value}.`, source.value);
       } else if (item.value !== undefined && item.value !== Number(source.value)) {
         add(source, "source_conflict", item.quote, `The approved ${source.kind === "trial_days" ? "trial duration" : "monthly INR price"} is ${source.value}.`,
-          source.kind === "trial_days" ? item.quote.replace(/\d+/, source.value) : item.quote.replace(/\d+(?:,\d{3})*/, source.value));
+          source.kind === "trial_days" ? item.quote.replace(/\d+/, source.value) : item.quote.replace(/\d+(?:,\d{3})*(?:\.\d{1,2})?/, source.value));
       }
     }
   }

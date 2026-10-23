@@ -4,7 +4,7 @@
 **Participant:** Vaibhav Tandon | **Email:** 24ucc077@lnmiit.ac.in
 **Revised:** 23 October 2026, incorporating the agreed cut ladder and Phase 0 start
 **Budget:** 26 focused hours, including checks and submission preparation, plus 4 hours of repair reserve. **Total: 30 hours.**
-**Status:** Public shell verified. Phase 1/2 code is prepared and local checks pass; live-service/runtime gates remain open. The owner deferred service setup and authorised continued code preparation. BUILD_LOG.md records actual results; Phases 3–7 remain pending.
+**Status:** Public shell previously verified. Phases 1–5 are prepared in code; live-service/runtime gates remain open. The owner deferred service setup and authorised continued code preparation. BUILD_LOG.md records checks and limitations; docs/SETUP_REMAINING.md lists the service work. Phase 6 evaluation/browser evidence and Phase 7 submissions are still pending.
 
 ## 1. What this revision changes
 
@@ -47,17 +47,17 @@ The first 55 marks determine the build order. Tables and reusable form component
 | ID | Round 1 promise | Round 2 status/scope | Reason or change |
 |---|---|---|---|
 | R01 | One brand; creator, manager and reviewer | Partial: identity/lease/RLS foundation and pre-seed code prepared | Real seeded-account/isolation tests pending setup |
-| R02 | Up to 30 short rules/facts, owners, sources, dates, logo and palette | Partial: source editor, metadata and immutable publication code prepared | 30/31 boundary unit checks pass; persistence and Phase 5 assets pending |
-| R03 | English text up to 1,500 words; optional PNG/JPG up to 5 MB | Partial: campaign editor/word limit prepared; private bucket migration prepared | Word-boundary unit checks pass; real save and image workflow pending |
-| R04 | Exact terminology and fact checks | Not built: Phase 3 | No claim of general fact verification |
-| R05 | AI tone, messaging and unsupported-claim suggestions | Not built: Phase 3; separate 3.6 model connectivity fixture passed | A smoke fixture is not the product review engine |
-| R06 | Three finding categories, quotes, sources, suggested fixes | Not built: Phase 3 | Planned source/span validation remains required |
-| R07 | Comments, disputes, revisions and independent approval | Partial: numbered copy/history code prepared; review actions not built | Real version preservation tests pending; decisions remain Phase 4 |
-| R08 | Content/source changes invalidate approval | Not built: Phase 4 | Already in submitted PDF; not newly moved from Round 3 |
-| R09 | Image checklist, alt text, selected-pair contrast, readability | Not built: Phase 5 | No automated logo detection or pixel-picker |
-| R10 | Recurring confirmed issues, disputed rules, clarification requests | Not built: Phase 5 | No authorised cut has been activated |
-| R11 | Approved-material handoff and decision trail | Not built: Phase 5 HTML record | No bundled image archive |
-| R12 | Private content, AI disclosure/off switch and manual recovery | Partial: private-access code and disclosure prepared; manual recovery not built | Actual private-policy tests pending setup; fictional data only |
+| R02 | Up to 30 short rules/facts, owners, sources, dates, logo and palette | Partial: source publications and validated private logo/palette controls prepared | Input boundaries pass locally; live persistence/asset permissions pending |
+| R03 | English text up to 1,500 words; optional PNG/JPG up to 5 MB | Partial: numbered text/image saves and real decoder validation prepared | Local size/type/decoder tests pass; deployed private uploads pending |
+| R04 | Exact terminology and fact checks | Partial: Phase 3 checks prepared and tested locally | No claim of general fact verification; live saved results pending |
+| R05 | AI tone, messaging and unsupported-claim suggestions | Partial: real request, limits, explicit model selection and failure path prepared | Earlier 3.6 connectivity fixture passed; product accuracy/live journey pending |
+| R06 | Three finding categories, quotes, sources, suggested fixes | Partial: source/span validation and explicit new-version correction prepared | Invalid output rejection passes locally; live persistence pending |
+| R07 | Comments, disputes, revisions and independent approval | Partial: decision history and independent approval prepared | Role/transaction tests prepared; execution pending service setup |
+| R08 | Content/source changes invalidate approval | Partial: fresh approval-state function prepared | Edit/source/re-check/expiry paths await real database verification |
+| R09 | Image checklist, alt text, selected-pair contrast, readability | Partial: Phase 5 controls and approval gates prepared | Local contrast/decoder tests pass; no automated logo detection or pixel-picker |
+| R10 | Recurring confirmed issues, disputed rules, clarification requests | Partial: deduplicated issue table and clarification notes prepared | Local deduplication checks pass; live review history pending; no cut activated |
+| R11 | Approved-material handoff and decision trail | Partial: escaped HTML snapshot and fresh approval checks prepared | Local escaping/stale-snapshot tests pass; live download comparison pending |
+| R12 | Private content, AI disclosure/off switch and manual recovery | Partial: private access, disclosure, AI-off and manual checklist prepared | Actual private-policy/manual recovery tests pending; fictional data only |
 | R13 | Keyboard use, labelled controls and text statuses | Partial: native labelled controls/statuses prepared | Deployed keyboard/unassisted walkthrough pending |
 
 **Changes to state explicitly in the updated PDF:**

@@ -6,9 +6,9 @@ describe("explainable campaign checks", () => {
  it("allows the approved trial", () => { expect(exactChecks("SampleCo offers 14 days free.", samplecoSources).findings).toHaveLength(0); });
  it("matches aliases as whole names", () => { expect(exactChecks("SampleCorpse", samplecoSources).findings).toHaveLength(0); expect(exactChecks("Try SampleCorp.", samplecoSources).findings[0].suggestion).toBe("SampleCo"); });
  it("checks INR monthly prices", () => { expect(exactChecks("INR 799/month", samplecoSources).findings[0].suggestion).toBe("INR 499/month"); });
+ it("checks decimal and spaced rupee prices", () => { expect(exactChecks("₹ 499.50/month", samplecoSources).findings[0].suggestion).toBe("₹ 499/month"); expect(exactChecks("INR 499.00/month", samplecoSources).findings).toHaveLength(0); });
  it("flags an expired offer only when used", () => { expect(exactChecks("Use OCT10 today.", samplecoSources).findings[0].category).toBe("evidence_missing"); expect(exactChecks("SampleCo", samplecoSources).supportedSourceIds).not.toContain(samplecoSources.find((s) => s.kind === "offer")!.id); });
  it("rejects invented source IDs and quotes", () => { const base = { ruleId: samplecoSources[0].id, category: "style_suggestion", quote: "invented", explanation: "test", suggestion: null }; expect(() => validateAiFindings({ findings: [base] }, "SampleCo", samplecoSources)).toThrow(); expect(() => validateAiFindings({ findings: [{ ...base, ruleId: "fake", quote: "SampleCo" }] }, "SampleCo", samplecoSources)).toThrow(); });
  it("rejects malformed model output", () => { expect(() => validateAiFindings({ findings: "clean" }, "SampleCo", samplecoSources)).toThrow(); });
  it("replaces one literal quote without interpreting replacement syntax", () => { expect(applyLiteralSuggestion("old old", "old", "$&")).toBe("$& old"); expect(() => applyLiteralSuggestion("new", "old", "x")).toThrow(); });
 });
-

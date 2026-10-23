@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assetPathSchema, campaignAssetFields, imageReviewSchema, emptyImageReview, hexSchema } from "./image-schema";
 
 export const sourceKinds = ["terminology", "trial_days", "monthly_price", "offer", "tone", "evidence"] as const;
 export const wordCount = (text: string) => text.trim() ? text.trim().split(/\s+/u).length : 0;
@@ -26,7 +27,8 @@ export type SourceEntry = z.infer<typeof sourceEntrySchema>;
 
 export const sourceEntriesSchema = z.array(sourceEntrySchema).min(1, "Add at least one source.").max(30, "A workspace supports up to 30 sources.")
   .refine((entries) => new Set(entries.map((entry) => entry.id)).size === entries.length, "Each source needs a distinct ID.");
-export const publishSourcesSchema = z.strictObject({ expectedVersion: z.number().int().nonnegative(), entries: sourceEntriesSchema });
+export const publishSourcesSchema = z.strictObject({ expectedVersion: z.number().int().nonnegative(), entries: sourceEntriesSchema,
+  logoPath: assetPathSchema.nullable().default(null), palette: z.array(hexSchema).max(6).default([]) });
 
 export const saveCampaignSchema = z.strictObject({
   campaignId: z.uuid().nullable(), expectedVersion: z.number().int().nonnegative(),
@@ -35,12 +37,15 @@ export const saveCampaignSchema = z.strictObject({
   audience: z.string().trim().min(1, "Name the intended audience.").max(300),
   body: z.string().trim().min(1, "Enter campaign text.").max(120_000)
     .refine((body) => wordCount(body) <= 1500, "Keep campaign text within 1,500 words."),
+  ...campaignAssetFields,
 });
 export type CampaignInput = z.infer<typeof saveCampaignSchema>;
 
 export const campaignVersionSchema = z.object({
   id: z.uuid(), campaign_id: z.uuid(), version: z.number().int().positive(),
   title: z.string(), purpose: z.string(), audience: z.string(), body: z.string(), created_at: z.string(),
+  image_path: assetPathSchema.nullable().default(null), alt_text: z.string().default(""),
+  image_review: imageReviewSchema.default(emptyImageReview), foreground: hexSchema.default("#000000"), background: hexSchema.default("#ffffff"),
 });
 export const campaignSchema = z.object({
   id: z.uuid(), creator_id: z.uuid(), current_version: z.number().int().positive(),
@@ -52,6 +57,7 @@ export type Campaign = z.infer<typeof campaignSchema>;
 export const rulebookSchema = z.object({
   id: z.uuid(), version: z.number().int().positive(), entries: sourceEntriesSchema,
   published_at: z.string(), published_by: z.uuid(),
+  logo_path: assetPathSchema.nullable().default(null), palette: z.array(hexSchema).default([]),
 });
 export const deskStateSchema = z.object({
   rulebookVersion: z.number().int().nonnegative(),

@@ -36,6 +36,8 @@ begin
    or jsonb_typeof(p_supported)<>'array' then raise exception 'Invalid run' using errcode='22023'; end if;
  if exists(select 1 from jsonb_array_elements_text(p_supported) s where not exists(select 1 from jsonb_array_elements(entries) e where e->>'id'=s)) then
    raise exception 'Unknown supporting source' using errcode='22023'; end if;
+ -- Serialise check publication with human review/approval on this campaign.
+ perform 1 from public.campaigns c where c.id=p_campaign for update;
  insert into public.check_runs(workspace_id,campaign_id,content_version_id,rulebook_id,actor_id,status,model,error_code,supported_source_ids)
  values(p_workspace,p_campaign,p_version,p_rulebook,p_actor,p_status,p_model,p_error,p_supported) returning id into run;
  for f in select * from jsonb_array_elements(p_findings) loop

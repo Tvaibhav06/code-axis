@@ -24,9 +24,9 @@ export type CheckRun = z.infer<typeof runSchema>;
 export const eventSchema = z.object({ id: z.uuid(), actor_id: z.uuid(), actor_role: z.string(), event_type: z.string(),
   note: z.string(), finding_id: z.uuid().nullable(), created_at: z.string(), content_version_id: z.uuid() });
 export type ReviewEvent = z.infer<typeof eventSchema>;
-export const approvalStateSchema = z.object({ current: z.boolean(), reason: z.string(), checked_at: z.string(),
-  approval: z.object({ id: z.uuid(), reviewer_id: z.uuid(), approved_at: z.string(), content_version_id: z.uuid(),
-    rulebook_id: z.uuid(), run_id: z.uuid(), review_mode: z.string() }).nullable() });
+export const approvalRecordSchema = z.object({ id: z.uuid(), reviewer_id: z.uuid(), approved_at: z.string(), content_version_id: z.uuid(),
+  rulebook_id: z.uuid(), run_id: z.uuid(), review_mode: z.string() });
+export const approvalStateSchema = z.object({ current: z.boolean(), reason: z.string(), checked_at: z.string(), approval: approvalRecordSchema.nullable() });
 export type ApprovalState = z.infer<typeof approvalStateSchema>;
-export const reviewViewSchema = z.object({ runs: z.array(runSchema), events: z.array(eventSchema), approval: approvalStateSchema.nullable() });
+export const reviewViewSchema = z.object({ runs: z.array(runSchema), events: z.array(eventSchema), approval: approvalStateSchema.nullable(), approvals: z.array(approvalRecordSchema).default([]) });
 export type ReviewView = z.infer<typeof reviewViewSchema>;

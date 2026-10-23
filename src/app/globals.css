@@ -7,3 +7,19 @@
 @media(max-width:1000px){.wrap{padding-left:32px;padding-right:32px}.hero{gap:32px}h1{font-size:49px}.review-card{padding:22px}.workflow{grid-template-columns:1fr}.section-intro h2 br{display:none}}
 @media(max-width:700px){.wrap{padding-left:22px;padding-right:22px}.site-header{height:86px}.brand{font-size:15px}.quiet-link{font-size:12px}.hero{grid-template-columns:1fr;gap:36px;padding:28px 0 45px}h1{font-size:48px;letter-spacing:-2px}.lede{font-size:16px;max-width:none}.review-card{padding:22px}.steps{grid-template-columns:1fr;gap:24px}.steps article{display:grid;grid-template-columns:28px 1fr;gap:0 10px}.steps h3{margin:0 0 5px}.steps p{grid-column:2}.step-number{padding-top:4px}.workflow{padding:30px 0;gap:15px}.footer{font-size:10px}.card-top{flex-wrap:wrap}.section-intro h2{font-size:25px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.button{transition:none}}
+
+.editor-panel + .editor-panel { margin-top: 24px; }
+.editor-panel label { display: block; margin: 12px 0; font-size: 14px; line-height: 1.6; }
+.editor-panel label > textarea, .editor-panel label > input:not([type=checkbox]):not([type=color]), .editor-panel label > select { display: block; width: 100%; padding: 10px; border: 1px solid #a9b7ac; border-radius: 5px; background: var(--white); color: var(--ink); }
+.editor-panel label.check-label { display: flex; gap: 10px; align-items: flex-start; }
+.check-label input { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 4px; }
+.editor-panel blockquote { font-size: 18px; margin: 12px 0; overflow-wrap: anywhere; }
+.editor-panel small { overflow-wrap: anywhere; }
+.asset-preview { margin: 14px 0; }
+.asset-preview img { display: block; max-width: 100%; max-height: 360px; object-fit: contain; }
+.asset-preview figcaption { font-size: 12px; line-height: 1.6; }
+.image-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.editor-panel table { border-collapse: collapse; width: 100%; margin-top: 16px; font-size: 14px; }
+.editor-panel th, .editor-panel td { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.editor-panel caption { text-align: left; margin-bottom: 12px; }
+@media(max-width:700px) { .image-comparison { grid-template-columns: 1fr; } .editor-panel th, .editor-panel td { padding: 8px 4px; font-size: 12px; } }

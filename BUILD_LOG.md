@@ -2,7 +2,7 @@
 
 ## Phase 0 — started 23 October 2026 (Asia/Kolkata)
 
-**Status: Public shell verified; Phase 0 service gate remains open. Phase 1/2 code prepared, with runtime checks blocked by deferred service setup.** No phase is marked complete without its exit evidence.
+**Status: Public shell previously verified; Phase 0 service gate remains open. Phases 1–5 are prepared in code, with runtime checks blocked by deferred service setup.** No phase is marked complete without its exit evidence. Remaining service steps are in docs/SETUP_REMAINING.md.
 
 ### Authorised plan changes
 
@@ -54,7 +54,7 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 | 2. Sources/content snapshots | Prepared in code; 19 input-boundary unit checks pass | Real persistence, role checks and deployed editor remain pending |
 | 3. Checks and real AI | Prepared; 27 local unit checks and production build pass | Live persistence, quota and provider journey pending |
 | 4. Human review/approval | Prepared; local checks pass | Live permission and transaction tests pending |
-| 5. Images/export | In preparation | Runtime gates still require external setup |
+| 5. Images/export | Prepared; 47 local unit checks pass | Deployed upload/export and permission gates require setup |
 | 6. Pilot/verification | Not started | Await working core journey |
 | 7. Submission pack | Not started | Await measured implementation results |
 
@@ -116,3 +116,19 @@ Do not infer provider access, paid billing, RLS correctness or a deployed link f
 - Approval status is recomputed from saved versions and source dates on each read. Editing or re-checking makes earlier approval historical.
 - Extended the existing permission group with real role denial, manual checklist, blocker, source-change and one two-request edit-versus-approval test. Trusted manual test fixtures are labelled and are not model-quality evidence.
 - Local unit tests **27/27**, lint, TypeScript and production build passed; lint/typecheck also passed after adding the permission script. The live script has not passed because service setup is deferred. SQL transaction/RLS behaviour still needs real Supabase verification.
+
+## Phase 5 code preparation — 23 October 2026
+
+- Authenticated direct upload to the private bucket, with server ownership checks and trusted registration only after size, signature/MIME, dimensions and full Sharp decoding pass. Still PNG/JPG only; 5 MB, 4096 pixels per side, 16 megapixels. Original bytes stay unchanged; temporary signed previews last five minutes.
+- Manager logo/palette publication and campaign image/alt-text/checklist/colour metadata are stored in new immutable versions. Creator-confirmed text suggestions preserve attached image metadata. Read-only reviewers can compare the saved image with the approved logo/palette.
+- Manual logo, spacing, readability and palette checks plus a selected-pair contrast calculation. SQL approval independently requires these fields, alternative text and at least 4.5:1 for the selected normal-text pair. These are not automated logo recognition or a full accessibility assessment.
+- Confirmed/disputed issue table uses the latest decision per finding and counts each campaign/rule once per column across repeated runs. Dismissing one false alarm does not hide a different confirmed issue. Clarification requests and manager notes use the existing append-only review trail. No cut-ladder item was activated.
+- One escaped HTML snapshot includes approved copy, purpose/audience, private image identifier, sources, findings/resolutions, reviewer/time/mode and decision history. It contains no scripts, embedded original image or temporary signed URL. Fresh approval is checked before assembly and immediately before response.
+- Added real-account image permission assertions to the existing permission group, including forged-validation denial, missing alt/manual checks, contrast and preservation of old metadata. These fixtures are labelled manual, not fabricated AI results.
+- **47/47 local unit tests passed**: input/exact-check/AI-evidence boundaries, actual PNG/JPEG decoding, MIME/corruption/dimension/5 MB boundaries, declared-animation rejection, contrast, issue deduplication, HTML escaping and rejected stale snapshots/unsafe links.
+- All six migrations and their PL/pgSQL bodies passed a local PostgreSQL syntax parser. This is syntax evidence only: schema creation, grants, RLS, source expiry and transaction behaviour remain unverified in Supabase.
+- The live permission command was attempted and returned blocked/failure because the server key and generated verification manifest are missing. Presence-only checks confirmed both missing, the local smoke token present, and interactive entry still false. No private settings were printed.
+- Windows build friction: Turbopack could not create the native Sharp junction. Switched to Next's supported Webpack builder. The old cache could not be cleared because automatic approval review rejected that action; no cache deletion occurred. A build passed in a separate output folder. Subsequent Windows worker-directory creation errors were handled with ordinary authorised directory creation, without copying/removing files or changing permissions. The optional BRD_BUILD_DIR setting and ignored output folders keep this local workaround out of the deployed configuration.
+- Phase 6 browser journey/pilot and Phase 7 submission pack remain unstarted. Provider calls have not been repeated while service setup is deferred. No deployed end-to-end or accuracy result is inferred from compilation.
+- Final Phase 5 verification: **47/47 unit tests, lint, route generation, TypeScript and production build passed** after the last UI/error-state edits, using `.next-phase5-final` locally. Next's generated temporary output-path additions were removed from the tracked compiler settings afterwards; compiler options are unchanged.
+- Eight local HTTP checks against that production build passed: landing/health 200; review/upload mutations reject a foreign origin with 403; disabled review, image, issue-history and export services return controlled 503 responses. These are shell/gating checks, not signed-in permission or browser-journey evidence.

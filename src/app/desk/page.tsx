@@ -7,7 +7,8 @@ import { WorkspaceEditor } from "@/components/workspace-editor";
 
 export const dynamic = "force-dynamic";
 
-export default async function Desk() {
+export default async function Desk({ searchParams }: { searchParams: Promise<{ campaign?: string }> }) {
+  const query = await searchParams;
   let context;
   try { context = await requireDemoContext(); }
   catch (error) {
@@ -28,8 +29,8 @@ export default async function Desk() {
       <p className="eyebrow">Your isolated workspace</p><h1>{workspace.data.name}</h1>
       <p>You are signed in as the <strong>{context.role}</strong>. Each demo role uses a separate account in this workspace.</p>
       <DemoRoleControls role={context.role} />
-      <p className="help-text">Fictional data only. Gemini free-tier inputs and responses may be used by Google to improve its products. AI checks used: {context.lease.ai_attempts} / {context.lease.ai_attempt_limit}. The review engine is being prepared.</p>
-      <WorkspaceEditor key={`${context.lease.workspace_id}-${context.role}`} initialState={state} role={context.role} userId={context.userId} />
+      <p className="help-text">Fictional data only. Gemini free-tier inputs and responses may be used by Google to improve its products. AI attempts at page load: {context.lease.ai_attempts} / {context.lease.ai_attempt_limit}. Shared project quota also applies. Refresh the page to update this count.</p>
+      <WorkspaceEditor key={`${context.lease.workspace_id}-${context.role}`} initialState={state} role={context.role} userId={context.userId} initialCampaignId={query.campaign} />
     </main>
   </>;
 }

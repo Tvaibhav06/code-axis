@@ -4,7 +4,7 @@ A focused CodeAxis project by DIZZY DEV (Vaibhav Tandon). Review campaign conten
 
 ## Current status
 
-The shell is deployed at [brand-review-desk.vercel.app](https://brand-review-desk.vercel.app). The home page and health route returned 200; the setup route rejected unauthorised requests. The landing example remains illustrative. Phase 1 foundation and Phase 2 source/campaign code are prepared with demo entry disabled by default. Runtime gates remain open until real service, permission and browser checks pass. The owner explicitly deferred service setup while continuing code preparation. See BUILD_LOG.md for measured results and blockers.
+The shell is deployed at [brand-review-desk.vercel.app](https://brand-review-desk.vercel.app). Its previously checked home page and health route returned 200; the setup route rejected unauthorised requests. The landing example remains illustrative. **Phases 1–5 are prepared in code**, including saved checks, real Gemini integration, human review/approval, private image controls, issue counts and HTML export. Interactive entry remains disabled by default. The owner deferred service setup; live database, product-AI and browser gates remain open. See [the remaining setup checklist](docs/SETUP_REMAINING.md) and BUILD_LOG.md. Committed code is not proof of a deployed working workflow.
 
 ## Local setup
 
@@ -12,7 +12,7 @@ Use Node 22 and npm. Install the pinned dependencies with `npm ci`. Copy `.env.e
 
 Checks: `npm run lint`, `npm run typecheck`, `npm run build`.
 
-The planned rule-unit group now uses Vitest: `npm run test:rules`. Current tests cover Phase 2 input/security boundaries; they do not certify a review engine. Playwright remains for the planned complete browser journey. No CI pipeline has been added.
+The rule-unit group uses Vitest: `npm run test:rules`. It covers input boundaries, exact checks, AI source/span validation, actual image decoding, contrast, issue deduplication and escaped export. The real permission group uses seeded Supabase accounts. Phase 6 still needs one Playwright journey and the ten-draft pilot; no CI pipeline or broad DB-test framework has been added. Next uses its supported Webpack builder for Windows/native-module compatibility. The setup checklist documents the optional fresh local build directory.
 
 The public `/api/health` endpoint checks the application shell only. It intentionally makes no claim that any external service is connected.
 
@@ -36,17 +36,17 @@ The supplied Supabase project is `https://uyowubvbofkahdoovfxb.supabase.co`. Its
 ## Phase 1 setup and verification
 
 1. Apply `supabase/migrations/202610230002_phase1_foundation.sql` after the Phase 0 migration, using the project's SQL editor or your migration tooling. This creates workspace memberships, private asset access, demo leases and attempt counters. SQL has not been applied merely because the file exists.
-2. Add the Supabase server secret/service-role key as `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Keep `DEMO_ACCESS_ENABLED=false`. This key is restricted in application code to demo allocation; campaign operations will use the signed-in user's RLS permissions. The setup script also uses it to pre-provision accounts. No runtime route creates accounts.
+2. Add the Supabase server secret/service-role key as `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Keep `DEMO_ACCESS_ENABLED=false`. Trusted server use is restricted to demo allocation, validated check results and decoded-asset registration after lease/role checks. Normal content, review and approval operations use the signed-in user's RLS permissions. The setup script also pre-provisions accounts. No runtime route creates accounts.
 3. Run `npm run seed:demo`. Default: **24 judge workspaces plus two isolated verification workspaces**, three real Auth identities each. Fictional `example.test` addresses are confirmed through the admin API without sending email. The script persists generated credentials only in `.env.local` as `DEMO_POOL_ACCOUNTS_JSON`, and replaces smoke-user settings with the first verification creator. No secrets are printed. Re-run with the same file to resume; it preserves claimed slots. Increasing `DEMO_POOL_SIZE` appends capacity; shrinking/recycling is refused.
 4. Run the Supabase smoke check and `npm run test:permissions -- --foundation-only`. The latter uses the two verification workspaces for actual role, cross-workspace, privileged-RPC and private-file checks. Its admin key is used only for unique test-image cleanup. It does not substitute mocks for a real database or claim later approval tests have passed.
 5. Copy the server key, generated manifest and required settings privately into Vercel. For the deployed Phase 0 check, the same `PHASE0_SMOKE_TOKEN` must be present locally and in Vercel. Deploy again after environment changes. Never commit `.env.local` or paste secrets into chat.
-6. The current prepared revision includes Phase 2. Apply its migration/seed below before enabling this revision's workspace editor. After service/permission checks pass, enable `DEMO_ACCESS_ENABLED=true`, redeploy, then verify two fresh browser sessions receive separate workspaces, roles switch correctly and refresh restores access. Only then close the Phase 1 runtime gate. Disable entry again if the gate fails.
+6. This revision includes Phases 2–5. Apply all remaining migrations through `202610230006_phase5_assets.sql` and the content seed before enabling the workspace. After service/permission checks pass, enable `DEMO_ACCESS_ENABLED=true`, redeploy, then verify two fresh browser sessions receive separate workspaces, roles switch correctly and refresh restores access. Only then close the Phase 1 runtime gate. Disable entry again if the gate fails.
 
 The public entry reserves a pre-provisioned slot atomically, uses an opaque HttpOnly lease cookie and signs in with real Supabase Auth. An eight-hour lease is never automatically recycled. Role switching accepts only a role name and resolves the account from that lease; callers cannot supply account/workspace IDs. Mutations require the same request origin. Auth cookies are renewed with the standard Supabase SSR client and Next.js proxy.
 
-`DEMO_AI_ATTEMPT_LIMIT=5` is the free-tier setting. `GLOBAL_AI_ATTEMPT_LIMIT=0` leaves public AI calls disabled until the owner chooses an allowance from actual provider quota; setup does not assume a free-tier quota. The database reservation function counts an attempt before a future Phase 3 provider call, with conditional global/session updates in one transaction. Those limit execution tests remain part of Phase 3.
+`DEMO_AI_ATTEMPT_LIMIT=5` is the free-tier setting. `GLOBAL_AI_ATTEMPT_LIMIT=0` leaves public AI calls disabled until the owner chooses an allowance from actual provider quota; setup does not assume a free-tier quota. The check route reserves a database attempt before calling Gemini, with conditional global/session updates in one transaction. Actual limit-exhaustion verification remains pending service setup. No automatic counter reset is provided.
 
-Private assets allow member reads and creator/manager uploads under their own workspace/user path. Browser overwrite and deletion are denied so saved images can later support immutable content versions. Phase 5 still needs upload-byte validation and the actual image workflow; a storage policy is not that completed feature.
+Private assets allow member reads and creator/manager uploads under their own workspace/user path. Browser overwrite and deletion are denied. Phase 5 adds direct storage upload and trusted signature/MIME/full-decoder verification before a saved version can reference an image: still PNG/JPG, 5 MB, 4096 pixels per side, 16 megapixels. Image bytes stay unchanged. Failed/abandoned uploads can remain unreferenced in the private demo bucket; no cleanup service was added. Runtime private-file tests remain pending.
 
 ## Phase 2 setup and verification
 
@@ -59,8 +59,8 @@ The API derives workspace/user scope from the active lease and validated Auth id
 
 ## Scope and decisions
 
-- Phase 1/3 will provide pre-provisioned sandboxes and enforce **5 AI attempts per lease on the free tier**, across all three roles. Failed calls and explicit retries count. The previously agreed 15 attempts are an option only after paid access and sufficient global headroom are configured. This limit is not yet enforced by the Phase 0 shell, which exposes no public AI endpoint. Configure the global allowance from the project's actual quota before opening the interactive demo.
-- Approval starts with a campaign-row `SELECT ... FOR UPDATE` inside the approve function; saves/review mutations coordinate on that row. Source-version validity is still checked separately. Implementation belongs to Phase 4.
+- Prepared server/SQL controls enforce **5 AI attempts per lease on the free tier**, across all three roles. Failed calls and explicit retries count after reservation. Fifteen attempts remain an option only after paid access and sufficient global headroom are configured. Live limit enforcement is unverified until setup/tests pass. Configure the global allowance from actual provider quota before opening the interactive demo.
+- The prepared approve function starts with a campaign-row `SELECT ... FOR UPDATE`; saves, check publication and review mutations coordinate on that row. Source publication is locked while verifying the current rulebook. Live transaction behaviour still needs Supabase verification.
 - If behind schedule: defer clarification features first; then reduce the issue table to deduplicated counts. Mark R10 Partial and disclose cuts. Preserve normal review comments and the core workflow.
 - Round 3 starts with a PDF-extraction spike on Vercel, since PDF review and guideline import share it.
 - The implementation plan is kept in `docs/ROUND2_BUILD_PLAN.md`.
@@ -69,7 +69,7 @@ The API derives workspace/user scope from the active lease and validated Auth id
 
 OpenAI Codex assisted with planning and generated this initial implementation, migration, scripts and documentation. Vaibhav is responsible for reviewing, understanding and validating the code. The Round 1 proposal also attributed research assistance to Claude; that is not a claim of Claude-generated Round 2 code.
 
-This is a fresh implementation using Next.js, React, Supabase, Zod and their standard APIs. No purchased UI template or previous finished product was used. Dependency versions/licences are recorded in the lockfile/package metadata. Significant new reused components must be added to this disclosure. Keep small, factual, unsquashed commits during the build window.
+This is a fresh implementation using Next.js, React, Supabase, Zod, Sharp and their standard APIs, with Vitest for rule tests. No purchased UI template or previous finished product was used. OpenAI Codex generated substantial code for the checks, approval functions, upload validation, export, tests and setup instructions. Vaibhav must review and be able to explain these parts. Dependency versions/licences are recorded in the lockfile/package metadata. Keep small, factual, unsquashed commits during the build window.
 
 ## Reference documentation
 

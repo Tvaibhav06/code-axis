@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from "node:util";
 import { demoManifestSchema, type DemoRole } from "../src/lib/demo-schema";
 import { samplecoDraft, samplecoSources } from "../src/lib/sampleco";
 import { reviewPermissionChecks } from "./permission-review";
+import { assetPermissionChecks } from "./permission-assets";
 
 loadEnvConfig(process.cwd());
 let failures = 0;
@@ -131,6 +132,8 @@ async function main() {
       check("Database accepts 1,500 words", !boundary.error && boundary.data?.[0]?.version === 3);
       if (!process.argv.includes("--through-phase2")) await reviewPermissionChecks({ creator, reviewer, manager, otherCreator,
         admin: cleanupClient, workspaceId, ownerId, campaignId, bookId: fullBook.data[0].id, bookVersion: expected + 2, check });
+      if (!process.argv.includes("--through-phase2") && !process.argv.includes("--through-phase4")) await assetPermissionChecks({ creator, reviewer, manager,
+        admin: cleanupClient, workspaceId, ownerId, check });
     }
   } finally {
     if (uploaded) {
@@ -139,7 +142,7 @@ async function main() {
     }
     await Promise.all([creator, reviewer, manager, otherCreator].map((client) => client.auth.signOut({ scope: "local" })));
   }
-  console.log(`${failures === 0 ? "PASS" : "FAIL"} ${process.argv.includes("--foundation-only") ? "Phase 1" : "Phase 1/2"} permission checks (${failures} failed).`);
+  console.log(`${failures === 0 ? "PASS" : "FAIL"} ${process.argv.includes("--foundation-only") ? "Phase 1" : "prepared-phase"} permission checks (${failures} failed).`);
   console.log("Manual permission fixtures are not AI accuracy or pilot evidence. AI quota and the browser journey require separate live verification.");
   process.exitCode = failures ? 1 : 0;
 }
