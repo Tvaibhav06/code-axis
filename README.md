@@ -75,6 +75,8 @@ This is a fresh implementation using Next.js, React, Supabase, Zod, Sharp and th
 
 ## Reference documentation
 
+- [Performance repairs, measured results and workflow verification](docs/PERFORMANCE_FIXES_AND_WORKFLOW.md)
+
 - [Next.js installation](https://nextjs.org/docs/app/getting-started/installation)
 - [Supabase row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Gemini generateContent API](https://ai.google.dev/api/generate-content)

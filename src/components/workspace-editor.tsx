@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { deskStateSchema, sourceKinds, wordCount, type Campaign, type CampaignInput, type DeskState, type SourceEntry } from "@/lib/content-schema";
+import { useRef, useState, type FormEvent } from "react";
+import { sourceKinds, wordCount, type Campaign, type CampaignInput, type DeskState, type SourceEntry } from "@/lib/content-schema";
+import { deskSnapshotSchema, type DeskSnapshot } from "@/lib/desk-snapshot";
 import type { DemoRole } from "@/lib/demo-schema";
 import { ReviewPanel } from "./review-panel";
 import { AssetPreview, AssetUpload } from "./image-controls";
@@ -125,34 +126,56 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
   </section>;
 }
 
-export function WorkspaceEditor({ initialState, role, userId, initialCampaignId }: { initialState: DeskState; role: DemoRole; userId: string; initialCampaignId?: string }) {
-  const [state, setState] = useState(initialState);
+export function WorkspaceEditor({ initialSnapshot, role, userId }: { initialSnapshot: DeskSnapshot; role: DemoRole; userId: string }) {
+  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const state = snapshot.state;
   const [view, setView] = useState<"campaigns" | "sources">(role === "manager" ? "sources" : "campaigns");
-  const [selected, setSelected] = useState(initialState.campaigns.find((c) => c.id === initialCampaignId)?.id || initialState.campaigns[0]?.id || "");
+  const [selected, setSelected] = useState(initialSnapshot.campaignId || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  async function reload(id?: string) {
-    let response;
-    try { response = await fetch("/api/desk/state", { cache: "no-store", signal: AbortSignal.timeout(25_000) }); }
-    catch { throw new Error("The workspace could not refresh. Please try Load latest again."); }
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || "The workspace could not reload.");
-    const parsed = deskStateSchema.safeParse(data);
-    if (!parsed.success) throw new Error("Workspace data could not be read safely. Please reload.");
-    setState(parsed.data);
-    if (id) setSelected(id);
-    setMessage("Saved version loaded from the workspace."); setError("");
+  const [pending, setPending] = useState(false);
+  const inFlight = useRef<Promise<void> | null>(null);
+  function reload(id?: string): Promise<void> {
+    if (inFlight.current) return inFlight.current;
+    const campaignId = id || selected;
+    setPending(true); setMessage(""); setError("");
+    const operation = (async () => {
+      try {
+        const response = await fetch(`/api/desk/snapshot${campaignId ? `?campaign=${campaignId}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(25_000) });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.error || "The workspace could not reload.");
+        const parsed = deskSnapshotSchema.safeParse(data);
+        if (!parsed.success) throw new Error("Workspace data could not be read safely. Please reload.");
+        setSnapshot(parsed.data);
+        setSelected(parsed.data.campaignId || "");
+        setMessage("Saved version loaded from the workspace.");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "The workspace could not refresh. Please try Load latest again.";
+        setSnapshot((previous) => ({ ...previous, review: null, reviewError: message, issueError: "Issue counts could not refresh. Use Refresh counts to retry." }));
+        setError(message);
+        throw new Error(message);
+      } finally { setPending(false); inFlight.current = null; }
+    })();
+    inFlight.current = operation;
+    return operation;
   }
   const campaign = state.campaigns.find((item) => item.id === selected);
   return <div className="workspace-content">
-    <nav className="workspace-nav" aria-label="Workspace sections"><button className="secondary-button" aria-pressed={view === "campaigns"} onClick={() => setView("campaigns")}>Campaigns</button><button className="secondary-button" aria-pressed={view === "sources"} onClick={() => setView("sources")}>Brand sources</button>
-      <button className="text-button" onClick={() => reload().catch((error) => setError(error instanceof Error ? error.message : "Refresh failed."))}>Load latest</button></nav>
+    <nav className="workspace-nav" aria-label="Workspace sections"><button className="secondary-button" disabled={pending} aria-pressed={view === "campaigns"} onClick={() => setView("campaigns")}>Campaigns</button><button className="secondary-button" disabled={pending} aria-pressed={view === "sources"} onClick={() => setView("sources")}>Brand sources</button>
+      <button className="text-button" disabled={pending} onClick={() => { void reload().catch(() => {}); }}>Load latest</button>
+      {pending && <span role="status">Refreshing workspace…</span>}</nav>
     {message && <p role="status">{message}</p>}{error && <p role="alert" className="form-error">{error}</p>}
+    <div inert={pending} aria-busy={pending}>
     {view === "sources" ? <SourcesEditor key={`sources-${state.rulebookVersion}`} data={state} editable={role === "manager"} reload={reload} /> : <>
-      <div className="campaign-picker"><label htmlFor="campaign-picker">Saved campaign</label><select id="campaign-picker" value={selected} onChange={(event) => setSelected(event.target.value)}><option value="">New campaign</option>{state.campaigns.map((item) => <option key={item.id} value={item.id}>{item.campaign_versions.find((version) => version.version === item.current_version)?.title} · v{item.current_version}</option>)}</select></div>
+      <div className="campaign-picker"><label htmlFor="campaign-picker">Saved campaign</label><select id="campaign-picker" value={selected} onChange={(event) => {
+        const id = event.target.value;
+        if (!id) setSelected(""); else { void reload(id).catch(() => {}); }
+      }}><option value="">New campaign</option>{state.campaigns.map((item) => <option key={item.id} value={item.id}>{item.campaign_versions.find((version) => version.version === item.current_version)?.title} · v{item.current_version}</option>)}</select></div>
       <CampaignEditor key={`${selected}-${campaign?.current_version || 0}-${state.rulebookVersion}`} book={state.rulebooks[0]} campaign={campaign} editable={role === "creator" && (!campaign || campaign.creator_id === userId)} reload={reload} />
-      {campaign && <ReviewPanel key={`review-${campaign.id}-${campaign.current_version}-${state.rulebookVersion}`} campaign={campaign} state={state} role={role} reload={reload} />}
+      {campaign && <ReviewPanel key={`review-${campaign.id}-${campaign.current_version}-${state.rulebookVersion}`} campaign={campaign} state={state} role={role} reload={reload}
+        view={snapshot.campaignId === campaign.id ? snapshot.review : null} loading={pending} loadError={snapshot.reviewError} aiAvailable={snapshot.aiAvailable} />}
     </>}
-    <IssuesPanel key={`${state.rulebookVersion}-${state.campaigns.map((c) => `${c.id}-${c.current_version}-${c.status}`).join()}`} sources={state.rulebooks[0]?.entries || []} />
+    <IssuesPanel sources={state.rulebooks[0]?.entries || []} rows={snapshot.issueRows} error={snapshot.issueError} loading={pending} refresh={reload} />
+    </div>
   </div>;
 }

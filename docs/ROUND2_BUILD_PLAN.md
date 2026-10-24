@@ -6,6 +6,8 @@
 **Budget:** 26 focused hours, including checks and submission preparation, plus 4 hours of repair reserve. **Total: 30 hours.**
 **Status refreshed 24 October 2026:** Phases 1–5 have local rule, real-permission and browser evidence, including a later one-call real-AI journey. Phase 6 remains partial: the first pilot missed its target and a separate rerun stopped on provider quota at case five. The product-timeout check and final public release checks remain open. Phase 7 documentation is drafted at the owner's request, with these limitations retained. See docs/PHASE6_VERIFICATION.md. Deployment is deferred; no submission readiness is claimed.
 
+**Repair evidence:** the later performance/loading pass passed the expanded manual/image journey in development and a fresh production build. Reload now makes one shared snapshot read instead of independent panel fetches. Local measurements and remaining limits are in [Performance fixes and workflow](PERFORMANCE_FIXES_AND_WORKFLOW.md). This does not close the live-AI pilot or final hosted gate.
+
 ## 1. What this revision changes
 
 Build one complete journey: **approved sources → campaign text and optional image → explainable checks → revision → independent approval → downloadable review record**.

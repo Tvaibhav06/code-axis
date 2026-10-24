@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StartDemo } from "@/components/demo-controls";
+import { connection } from "next/server";
 
 const steps = [
   ["01", "Start with your sources", "Keep approved facts, language and brand assets together."],
@@ -7,7 +8,8 @@ const steps = [
   ["03", "Make a human decision", "Revise the draft and record who approved the exact version."],
 ];
 
-export default function Home() {
+export default async function Home() {
+  await connection();
   const demoEnabled = process.env.DEMO_ACCESS_ENABLED === "true";
   return (
     <>

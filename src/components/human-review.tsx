@@ -1,36 +1,32 @@
 "use client";
-import { useEffect, useState } from "react";
-import { reviewViewSchema, type ReviewView, type CheckRun } from "@/lib/review-schema";
+import { useState } from "react";
+import { type ReviewView, type CheckRun } from "@/lib/review-schema";
 import type { Campaign } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
 import { reviewPost } from "@/lib/review-client";
 
-export function HumanReview({ campaign, run, role, reload }: { campaign: Campaign; run?: CheckRun; role: DemoRole; reload: () => Promise<void> }) {
-  const [view, setView] = useState<ReviewView | null>(null);
+export function HumanReview({ campaign, run, role, reload, view, loading, loadError, rulebookId }: {
+  campaign: Campaign; run?: CheckRun; role: DemoRole; reload: () => Promise<void>;
+  view: ReviewView | null; loading: boolean; loadError: string; rulebookId?: string;
+}) {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [checks, setChecks] = useState({ finalReview: false, facts: false, claims: false, tone: false });
-  const url = `/api/review/history?campaign=${campaign.id}`;
-  useEffect(() => {
-    let active = true;
-    fetch(url, { cache: "no-store", signal: AbortSignal.timeout(20_000) }).then(async (r) => {
-      const data = await r.json(); if (!r.ok) throw new Error(data.error || "Review state unavailable."); return reviewViewSchema.parse(data);
-    }).then((data) => { if (active) setView(data); }).catch((e) => { if (active) setError(e instanceof Error ? e.message : "Review state unavailable."); });
-    return () => { active = false; };
-  }, [url]);
   async function act(action: string, findingId?: string) {
     setBusy(true); setError("");
     try {
       if (action === "approve") await reviewPost("approve", { campaignId: campaign.id, version: campaign.current_version, rulebookId: run?.rulebook_id, runId: run?.id, checklist: checks });
       else await reviewPost("human", { campaignId: campaign.id, version: campaign.current_version, action, note: note.trim(), findingId: findingId || null });
-      const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
-      if (!response.ok) throw new Error("Action saved, but the screen could not refresh. Load latest.");
-      setView(reviewViewSchema.parse(await response.json())); setNote(""); await reload();
+      setNote("");
+      try { await reload(); } catch { throw new Error("Action saved, but the screen could not refresh. Use Load latest before retrying the action."); }
     } catch (e) { setError(e instanceof Error ? e.message : "Review action failed."); }
     finally { setBusy(false); }
   }
-  const approvals = view?.approval;
+  const loaded = !loading && !loadError && !!view;
+  const approvals = loaded ? view.approval : null;
+  const latestId = campaign.campaign_versions.find((v) => v.version === campaign.current_version)?.id;
+  const currentApproval = approvals?.current && approvals.approval?.content_version_id === latestId && approvals.approval?.rulebook_id === rulebookId;
   async function download() {
     setBusy(true); setError("");
     try {
@@ -40,12 +36,13 @@ export function HumanReview({ campaign, run, role, reload }: { campaign: Campaig
     } catch (e) { setError(e instanceof Error ? e.message : "The download could not finish."); }
     finally { setBusy(false); }
   }
-  return <section className="editor-panel"><h2>Human review and handoff</h2>
-    <p><strong>{approvals?.current ? "Approved for this saved version" : "No current approval"}</strong><br />{approvals?.reason || "Loading approval status…"}</p>
+  return <section className="editor-panel" data-review-state={loading ? "loading" : loadError || !view ? "error" : "loaded"}><h2>Human review and handoff</h2>
+    {loading ? <p role="status">Loading approval status…</p> : !loaded ? <p role="alert" className="form-error">Approval status is unavailable. Use Load latest to retry.</p>
+      : <p><strong>{currentApproval ? "Approved for this saved version" : "No current approval"}</strong><br />{approvals?.current && !currentApproval ? "The reviewed content or sources differ from this screen. Load latest." : approvals?.reason || "No approval has been recorded."}</p>}
     {approvals && <small>Recomputed at {approvals.checked_at}. Reload before relying on this status.</small>}
     {approvals?.approval && <p>Last approval: {approvals.approval.approved_at} · {approvals.approval.review_mode === "manual" ? "Manual review (AI incomplete/off)" : "AI-assisted human review"} · Reviewer {approvals.approval.reviewer_id}</p>}
-    {approvals?.current && <><button className="button" disabled={busy} onClick={download}>Download approved HTML record</button><p className="help-text">Approval is checked again before download. The original image stays private in this workspace.</p></>}
-    <fieldset disabled={busy || !view} className="plain-fieldset"><legend>Record a review action</legend>
+    {currentApproval && <><button className="button" disabled={busy || loading} onClick={download}>Download approved HTML record</button><p className="help-text">Approval is checked again before download. The original image stays private in this workspace.</p></>}
+    <fieldset disabled={busy || !loaded} className="plain-fieldset"><legend>Record a review action</legend>
       <label>Comment or reason (required for decisions)<textarea rows={3} maxLength={1500} value={note} onChange={(e) => setNote(e.target.value)} /></label>
       <div className="form-actions"><button className="secondary-button" disabled={!note.trim()} onClick={() => act("comment")}>Add comment</button>
         <button className="secondary-button" disabled={!note.trim()} onClick={() => act("clarification_request")}>Ask manager for clarification</button>
@@ -62,7 +59,7 @@ export function HumanReview({ campaign, run, role, reload }: { campaign: Campaig
         <button className="button" disabled={!checks.finalReview || campaign.status !== "submitted" || (run.status !== "complete" && !(checks.facts && checks.claims && checks.tone))} onClick={() => act("approve")}>Approve saved version</button></>}
     </fieldset>
     {error && <p className="form-error" role="alert">{error}</p>}
-    {view && <details className="history"><summary>Comments and decision history ({view.events.length})</summary><ol>{view.events.map((event) => <li key={event.id}><strong>{event.actor_role} · {event.event_type.replaceAll("_", " ")}</strong> · {event.created_at}<p>{event.note}</p></li>)}</ol></details>}
-    {view && view.approvals.length > 0 && <details className="history"><summary>Recorded approvals ({view.approvals.length})</summary><ol>{view.approvals.map((a) => <li key={a.id}>{a.approved_at} · {a.review_mode} · reviewer {a.reviewer_id}<br /><small>Content snapshot {a.content_version_id} · Source snapshot {a.rulebook_id} · {a.id === approvals?.approval?.id && approvals.current ? "Current on last check" : "Historical"}</small></li>)}</ol></details>}
+    {loaded && <details className="history"><summary>Comments and decision history ({view.events.length})</summary><ol>{view.events.map((event) => <li key={event.id}><strong>{event.actor_role} · {event.event_type.replaceAll("_", " ")}</strong> · {event.created_at}<p>{event.note}</p></li>)}</ol></details>}
+    {loaded && view.approvals.length > 0 && <details className="history"><summary>Recorded approvals ({view.approvals.length})</summary><ol>{view.approvals.map((a) => <li key={a.id}>{a.approved_at} · {a.review_mode} · reviewer {a.reviewer_id}<br /><small>Content snapshot {a.content_version_id} · Source snapshot {a.rulebook_id} · {a.id === approvals?.approval?.id && currentApproval ? "Current on last check" : "Historical"}</small></li>)}</ol></details>}
   </section>;
 }

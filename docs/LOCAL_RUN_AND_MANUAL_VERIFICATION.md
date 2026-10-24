@@ -2,6 +2,19 @@
 
 Owner guide for Vaibhav Tandon, DIZZY DEV. Updated 24 October 2026, Asia/Kolkata. Start with the AI-off walkthrough below. It uses the real database, identities, private storage and approval logic without spending Gemini quota. Do not treat it as a successful AI evaluation.
 
+**After the repair pass:** the verified optimized build is running at `http://localhost:3137` with AI off. See [measured repairs and workflow checks](PERFORMANCE_FIXES_AND_WORKFLOW.md). The owner-approved pool now has 44 judge workspaces in total, with 24 unused at the final check, plus two verification workspaces. Keep the updated `.env.local` manifest; privately sync it before deploying. Counts are refreshed automatically after review decisions, with an explicit refresh still available.
+
+For a future optimized local run, stop the existing server first, then use a matching build/start directory:
+
+```powershell
+$env:BRD_BUILD_DIR = '.next'
+$env:AI_CHECKS_ENABLED = 'false'
+npm.cmd run build
+if ($LASTEXITCODE -eq 0) { npm.cmd run start -- --port 3137 --hostname 127.0.0.1 }
+```
+
+Rebuild after changing application code. Use the development instructions below when you want automatic updates while coding. A Windows output-folder permission failure requires correcting access to that generated folder; it is not fixed by increasing service quotas.
+
 ## 1 Understand and recover from the current quota error
 
 Your screenshot shows Gemini 3.6 Flash at **21/20 requests per day**, **2/5 requests per minute**, and **687/250K tokens per minute**. The panel reports peak usage over the selected period. Together with the recorded `provider_quota` result, this confirms a daily-limit breach at that snapshot. It does not establish the live balance at a later time. The earlier HTTP 503 responses are separate provider-availability failures.
@@ -108,7 +121,7 @@ Try SampleCo free for 30 days.
 ```
 
 3. Click **Save version N**. Note the new version number. Unsaved text is not checked.
-4. Untick **Include a real AI check**, then choose **Run checks**.
+4. Leave **Include a real AI check** off, then choose **Run checks**. It now starts unchecked. When the server has disabled AI, the checkbox is disabled and the screen explains that exact/manual review is available.
 5. Expect a **Source conflict** quoting the 30-day claim and referring to the approved 14-day source. The result must say manual review is required, not AI completed.
 6. Reload the page. Wait for checks and approval status to finish loading. Confirm the saved copy and result survive.
 

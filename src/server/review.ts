@@ -10,8 +10,9 @@ import { isVersionConflict } from "@/lib/conflicts";
 type Context = Awaited<ReturnType<typeof requireDemoContext>>;
 
 export async function getReviewState(context: Context, campaignId: string) {
-  const runs = await getRuns(context, campaignId);
-  const [events, approval, approvals] = await Promise.all([
+  if (!z.uuid().safeParse(campaignId).success) throw new DemoError(400, "Choose a saved campaign.");
+  const [runs, events, approval, approvals] = await Promise.all([
+    getRuns(context, campaignId),
     context.client.from("review_events").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("created_at", { ascending: true }).order("id", { ascending: true }),
     context.client.rpc("approval_state", { p_campaign: campaignId }),
     context.client.from("approvals").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("approved_at", { ascending: false }).order("id", { ascending: false }),

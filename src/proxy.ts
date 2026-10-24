@@ -18,8 +18,10 @@ export async function proxy(request: NextRequest) {
     },
     global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10_000) }) },
   });
-  // Validate with Auth, never trust a decoded cookie session as identity proof.
-  try { await client.auth.getUser(); } catch { /* Protected handlers reject unavailable/invalid identity. */ }
+  // Renew cookies here; this does not authorise a request. Every protected page
+  // and handler verifies the identity with getUser in requireDemoContext.
+  // Avoid a second remote identity lookup in this cookie-renewal layer.
+  try { await client.auth.getSession(); } catch { /* The protected data layer fails closed. */ }
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }

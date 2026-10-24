@@ -42,9 +42,8 @@ async function readLease() {
 
 export async function requireDemoContext() {
   requireEnabled();
-  const context = await readLease();
   const client = await createUserClient();
-  const { data, error } = await client.auth.getUser();
+  const [context, { data, error }] = await Promise.all([readLease(), client.auth.getUser()]);
   if (error || !data.user) throw new DemoError(401, "Your sign-in expired. Use Start demo to reconnect.");
   const role = demoRoles.find((candidate) => context.slot.accounts[candidate].userId === data.user.id);
   if (!role) throw new DemoError(403, "This identity does not belong to the demo session.");

@@ -132,6 +132,8 @@ Use a workspace-owned TEMP/TMP folder if the restricted Windows host cancels fil
 
 ## Remaining exit gates
 
+**24 October repair pass:** the performance/loading repairs passed the expanded real-database/image/manual browser journey in both development and a fresh production build. Issue confirmation, automatic counts, clarification, refresh failure recovery and both content/source invalidation now have additional browser evidence. The local production reload improved from 5.20 s to 2.50 s in individual observations. See [repair evidence](PERFORMANCE_FIXES_AND_WORKFLOW.md). These checks used no Gemini calls and do not close the live-AI pilot or timeout gates below.
+
 1. Wait until actual provider quota/availability is verified before another run; review the remaining app allowance separately. Keep original results and report a rerun separately. No automatic retry or scheduled wake-up has been set.
 2. Complete a conclusive ten-case pilot. The later one-call live-AI journey passed; this does not establish reliable provider availability or close the failed pilot gate.
 3. Exercise a real product timeout. Shared-allowance exhaustion/recovery, the controlled session-only database guard and the maximum browser-to-storage upload boundary now passed.

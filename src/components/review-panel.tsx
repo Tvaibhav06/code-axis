@@ -1,7 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { z } from "zod";
-import { runSchema, categoryLabels, type CheckRun } from "@/lib/review-schema";
+import { useState } from "react";
+import { categoryLabels, type ReviewView } from "@/lib/review-schema";
 import type { Campaign, DeskState } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
 import { HumanReview } from "./human-review";
@@ -15,46 +14,38 @@ function failureMessage(code: string | null) {
   if (["invalid_or_unavailable_output", "incomplete_output"].includes(code)) return "The AI response could not be verified. It has not been treated as a clean result.";
   return "AI checks could not complete with the current service settings. Continue with exact checks and manual review.";
 }
-export function ReviewPanel({ campaign, state, role, reload }: { campaign: Campaign; state: DeskState; role: DemoRole; reload: () => Promise<void> }) {
-  const [runs, setRuns] = useState<CheckRun[]>([]);
+export function ReviewPanel({ campaign, state, role, reload, view, loading, loadError, aiAvailable }: {
+  campaign: Campaign; state: DeskState; role: DemoRole; reload: () => Promise<void>;
+  view: ReviewView | null; loading: boolean; loadError: string; aiAvailable: boolean;
+}) {
+  const runs = view?.runs || [];
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [ai, setAi] = useState(true);
+  const [ai, setAi] = useState(false);
   const [consent, setConsent] = useState(false);
   const [model, setModel] = useState("primary");
   const latest = campaign.campaign_versions.find((v) => v.version === campaign.current_version)!;
-  async function load() {
-    const response = await fetch(`/api/review/history?campaign=${campaign.id}`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Review history could not load.");
-    setRuns(z.array(runSchema).parse(data.runs));
-  }
-  useEffect(() => {
-    let active = true;
-    fetch(`/api/review/history?campaign=${campaign.id}`, { cache: "no-store", signal: AbortSignal.timeout(20_000) })
-      .then(async (response) => { const data = await response.json(); if (!response.ok) throw new Error(data.error || "Review history could not load."); return z.array(runSchema).parse(data.runs); })
-      .then((data) => { if (active) setRuns(data); }).catch((error) => { if (active) setError(error instanceof Error ? error.message : "Review history could not load."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [campaign.id]);
   async function action(name: string, extra: object = {}) {
     setBusy(true); setError("");
-    try { await reviewPost(name, { campaignId: campaign.id, version: campaign.current_version, ...extra }); await load(); await reload(); }
+    try {
+      await reviewPost(name, { campaignId: campaign.id, version: campaign.current_version, ...extra });
+      try { await reload(); } catch { throw new Error("Action saved, but the screen could not refresh. Use Load latest before retrying the action."); }
+    }
     catch (error) { setError(error instanceof Error ? error.message : "Review action failed."); }
     finally { setBusy(false); }
   }
   const current = runs.find((r) => r.content_version_id === latest.id && r.rulebook_id === state.rulebooks[0]?.id);
   return <><section className="editor-panel" aria-labelledby="review-heading"><h2 id="review-heading">Check saved version {campaign.current_version}</h2>
     <p>Checks use saved copy and published sources. Editing the draft above does not change this review until you save.</p>
-    {role === "creator" && <fieldset disabled={busy || loading || !state.rulebooks.length} className="plain-fieldset"><legend>Check settings</legend>
-      <label className="check-label"><input type="checkbox" checked={ai} onChange={(e) => setAi(e.target.checked)} />Include a real AI check</label>
+    {role === "creator" && <fieldset disabled={busy || loading || !!loadError || !state.rulebooks.length} className="plain-fieldset"><legend>Check settings</legend>
+      <label className="check-label"><input type="checkbox" disabled={!aiAvailable} checked={aiAvailable && ai} onChange={(e) => setAi(e.target.checked)} />Include a real AI check</label>
+      {!aiAvailable && <p className="help-text">AI is disabled on this server. Exact checks and the manual reviewer checklist are available.</p>}
       {ai && <><label>Model<select value={model} onChange={(e) => setModel(e.target.value)}><option value="primary">Configured primary</option><option value="fallback">Configured fallback (select explicitly)</option></select></label><p className="help-text">No automatic retry or model switch. If the provider is unavailable, explicitly select the fallback or switch AI off for manual review.</p>
         <label className="check-label"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />I am using fictional data. Google may use free-tier inputs and responses to improve its products.</label></>}
-      <button className="button" disabled={ai && !consent} onClick={() => action("check", { ai, consent, model })}>{busy ? "Working…" : "Run checks"}</button>
+      <button className="button" disabled={aiAvailable && ai && !consent} onClick={() => action("check", { ai: aiAvailable && ai, consent, model })}>{busy ? "Working…" : "Run checks"}</button>
       <p className="help-text">Five free-tier attempts per demo session, subject to the shared quota. Provider failures count after an attempt is reserved. AI off keeps exact checks and requires manual review.</p></fieldset>}
-    {loading && <p role="status">Loading saved checks…</p>}{error && <p role="alert" className="form-error">{error}</p>}
-    {!loading && !current && <p>No current check. Run checks again after changing copy or sources.</p>}
+    {loading && <p role="status">Loading saved checks…</p>}{(error || loadError) && <p role="alert" className="form-error">{error || loadError}</p>}
+    {!loading && !loadError && !current && <p>No current check. Run checks again after changing copy or sources.</p>}
     {current && <><p role="status"><strong>{current.status === "complete" ? "AI check completed" : "Manual review required"}</strong> · {current.model || "AI off"} · {current.created_at}</p>
       {current.status !== "complete" && <p className="form-error">{failureMessage(current.error_code)} Exact results below remain available. This is not an AI pass.</p>}
       {current.findings.length === 0 && <p>No issues were returned by the checks that ran. A reviewer must still approve the campaign.</p>}
@@ -62,5 +53,6 @@ export function ReviewPanel({ campaign, state, role, reload }: { campaign: Campa
         <blockquote>{f.quote}</blockquote><p>{f.explanation}</p><small>Source: {state.rulebooks[0]?.entries.find((s) => s.id === f.rule_id)?.title || f.rule_id}</small>
         {f.suggestion && <><p>Suggested replacement: {f.suggestion}</p>{role === "creator" && <button disabled={busy} className="secondary-button" onClick={() => action("apply", { findingId: f.id })}>Apply to a new saved version</button>}</>}</li>)}</ul></>}
     {runs.length > 0 && <details className="history"><summary>Saved check history ({runs.length})</summary>{runs.map((r) => <p key={r.id}>{r.created_at} · {r.status} · {r.findings.length} findings · {r.model || "AI off"}{r.id === current?.id ? " · current" : " · historical"}</p>)}</details>}
-  </section><HumanReview key={`${current?.id || "none"}-${campaign.status}`} campaign={campaign} run={current} role={role} reload={reload} /></>;
+  </section><HumanReview key={`${current?.id || "none"}-${campaign.status}`} campaign={campaign} run={current} role={role} reload={reload}
+    view={view} loading={loading} loadError={loadError} rulebookId={state.rulebooks[0]?.id} /></>;
 }

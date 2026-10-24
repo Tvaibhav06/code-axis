@@ -6,13 +6,13 @@ import { isVersionConflict } from "@/lib/conflicts";
 export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>) {
   const { client, lease } = context;
   const [workspace, rulebooks, campaigns] = await Promise.all([
-    client.from("workspaces").select("rulebook_version").eq("id", lease.workspace_id).single(),
+    client.from("workspaces").select("name,rulebook_version").eq("id", lease.workspace_id).single(),
     client.from("rulebooks").select("id,version,entries,published_at,published_by,logo_path,palette").eq("workspace_id", lease.workspace_id).order("version", { ascending: false }),
     client.from("campaigns").select("id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background)")
       .eq("workspace_id", lease.workspace_id).order("updated_at", { ascending: false }),
   ]);
   if (workspace.error || rulebooks.error || campaigns.error) throw new DemoError(503, "The source library or campaigns could not load. Please retry after setup is complete.");
-  const state = deskStateSchema.safeParse({ rulebookVersion: workspace.data.rulebook_version, rulebooks: rulebooks.data, campaigns: campaigns.data });
+  const state = deskStateSchema.safeParse({ workspaceName: workspace.data.name, rulebookVersion: workspace.data.rulebook_version, rulebooks: rulebooks.data, campaigns: campaigns.data });
   if (!state.success) throw new DemoError(503, "Saved workspace data could not be read safely.");
   return state.data;
 }

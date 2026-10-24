@@ -1,14 +1,19 @@
 import { DemoError, demoErrorResponse, requireDemoContext, requireSameOrigin } from "@/server/demo";
 import { getDeskState, publishSources, saveCampaign } from "@/server/content";
+import { getDeskSnapshot } from "@/server/desk-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ action: string }> };
 const headers = { "Cache-Control": "private, no-store" };
 
-export async function GET(_request: Request, route: Context) {
-  if ((await route.params).action !== "state") return Response.json({ error: "Not found." }, { status: 404, headers });
-  try { return Response.json(await getDeskState(await requireDemoContext()), { headers }); }
+export async function GET(request: Request, route: Context) {
+  const { action } = await route.params;
+  if (!["state", "snapshot"].includes(action)) return Response.json({ error: "Not found." }, { status: 404, headers });
+  try {
+    const context = await requireDemoContext();
+    return Response.json(action === "snapshot" ? await getDeskSnapshot(context, new URL(request.url).searchParams.get("campaign") || undefined) : await getDeskState(context), { headers });
+  }
   catch (error) { return demoErrorResponse(error); }
 }
 
