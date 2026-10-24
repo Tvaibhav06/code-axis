@@ -7,17 +7,20 @@ import { getDeskState, saveCampaign } from "./content";
 import { createDemoAdminClient } from "./supabase";
 import { AiFailure, reviewWithGemini } from "./gemini";
 import { isVersionConflict } from "@/lib/conflicts";
+import { readRecords } from "./read-records";
 type Context = Awaited<ReturnType<typeof requireDemoContext>>;
 
-export async function getReviewState(context: Context, campaignId: string) {
+export async function getReviewState(context: Context, campaignId: string, fullHistory = false) {
   if (!z.uuid().safeParse(campaignId).success) throw new DemoError(400, "Choose a saved campaign.");
   const [runs, events, approval, approvals] = await Promise.all([
-    getRuns(context, campaignId),
-    context.client.from("review_events").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("created_at", { ascending: true }).order("id", { ascending: true }),
+    getRuns(context, campaignId, fullHistory),
+    readRecords((from, to) => context.client.from("review_events").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId)
+      .order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, to), fullHistory, 30),
     context.client.rpc("approval_state", { p_campaign: campaignId }),
-    context.client.from("approvals").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId).order("approved_at", { ascending: false }).order("id", { ascending: false }),
+    readRecords((from, to) => context.client.from("approvals").select("*").eq("workspace_id", context.lease.workspace_id).eq("campaign_id", campaignId)
+      .order("approved_at", { ascending: false }).order("id", { ascending: false }).range(from, to), fullHistory, 10),
   ]);
-  const parsed = reviewViewSchema.safeParse({ runs, events: events.data, approval: approval.data, approvals: approvals.data });
+  const parsed = reviewViewSchema.safeParse({ runs, events: events.data?.slice().reverse(), approval: approval.data, approvals: approvals.data });
   if (events.error || approval.error || approvals.error || !parsed.success) throw new DemoError(503, "Review/approval history is unavailable. Check the Phase 4 migration and reload.");
   return parsed.data;
 }
@@ -49,10 +52,10 @@ export async function approve(context: Context, input: unknown) {
   return result.data;
 }
 
-export async function getRuns(context: Context, campaignId: string) {
+export async function getRuns(context: Context, campaignId: string, fullHistory = false) {
   if (!z.uuid().safeParse(campaignId).success) throw new DemoError(400, "Choose a saved campaign.");
-  const { data, error } = await context.client.from("check_runs").select("*,findings(*)").eq("workspace_id", context.lease.workspace_id)
-    .eq("campaign_id", campaignId).order("created_at", { ascending: false }).order("id", { ascending: false });
+  const { data, error } = await readRecords((from, to) => context.client.from("check_runs").select("*,findings(*)").eq("workspace_id", context.lease.workspace_id)
+    .eq("campaign_id", campaignId).order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, to), fullHistory, 10);
   const parsed = z.array(runSchema).safeParse(data);
   if (error || !parsed.success) throw new DemoError(503, "Review history could not load. Check that the review migration has been applied.");
   return parsed.data;
@@ -63,7 +66,7 @@ export async function checkCampaign(context: Context, input: unknown) {
   if (!parsed.success) throw new DemoError(400, "Choose a saved version and check settings.");
   const request = parsed.data;
   if (context.role !== "creator") throw new DemoError(403, "Only the creator runs campaign checks.");
-  const state = await getDeskState(context);
+  const state = await getDeskState(context, { campaignId: request.campaignId });
   const campaign = state.campaigns.find((c) => c.id === request.campaignId && c.creator_id === context.userId);
   if (!campaign) throw new DemoError(403, "Campaign access denied.");
   if (campaign.current_version !== request.version) throw new DemoError(409, "Load the latest version before running checks.");
@@ -99,7 +102,7 @@ export async function checkCampaign(context: Context, input: unknown) {
 export async function applySuggestion(context: Context, input: unknown) {
   const parsed = z.strictObject({ campaignId: z.uuid(), version: z.number().int().positive(), findingId: z.uuid() }).safeParse(input);
   if (!parsed.success) throw new DemoError(400, "Choose a finding on the current version.");
-  const state = await getDeskState(context);
+  const state = await getDeskState(context, { campaignId: parsed.data.campaignId });
   const campaign = state.campaigns.find((c) => c.id === parsed.data.campaignId);
   if (!campaign || campaign.current_version !== parsed.data.version) throw new DemoError(409, "Load the latest campaign first.");
   const version = campaign.campaign_versions.find((v) => v.version === campaign.current_version)!;

@@ -4,6 +4,7 @@ import { type ReviewView, type CheckRun } from "@/lib/review-schema";
 import type { Campaign } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
 import { reviewPost } from "@/lib/review-client";
+import { HistoryArchive } from "./history-archive";
 
 export function HumanReview({ campaign, run, role, reload, view, loading, loadError, rulebookId }: {
   campaign: Campaign; run?: CheckRun; role: DemoRole; reload: () => Promise<void>;
@@ -52,14 +53,15 @@ export function HumanReview({ campaign, run, role, reload, view, loading, loadEr
       <p className="help-text">Clarifications are notes only. To change an approved fact, the manager must publish a new source version.</p>
       {role === "reviewer" && run && <><h3>Finding decisions</h3><p>Confirmed or disputed blocking issues remain unresolved. Correct them in a new version, or dismiss a false alarm with a reason.</p>
         <ul className="source-list">{run.findings.map((f) => <li key={f.id}><blockquote>{f.quote}</blockquote><p>{f.explanation}</p>
-          <small>Latest decision: {view?.events.filter((e) => e.finding_id === f.id && ["confirm", "dispute", "dismiss"].includes(e.event_type)).at(-1)?.event_type || "unreviewed"}</small>
+          <small>Decision in recent notes: {view?.events.filter((e) => e.finding_id === f.id && ["confirm", "dispute", "dismiss"].includes(e.event_type)).at(-1)?.event_type || "none loaded; see full decision history"}. Approval eligibility is checked against all decisions on the server.</small>
           <div className="form-actions">{["confirm", "dispute", "dismiss"].map((decision) => <button key={decision} className="secondary-button" disabled={!note.trim()} onClick={() => act(decision, f.id)}>{decision === "dismiss" ? "Dismiss false alarm" : decision === "confirm" ? "Confirm issue" : "Dispute rule"}</button>)}</div></li>)}</ul>
         {run.status !== "complete" && <fieldset><legend>Manual review required because AI did not complete</legend>{(["facts", "claims", "tone"] as const).map((key) => <label className="check-label" key={key}><input type="checkbox" checked={checks[key]} onChange={(e) => setChecks({ ...checks, [key]: e.target.checked })} />I checked {key === "facts" ? "all facts against current sources" : key === "claims" ? "claims and their evidence" : "tone and messaging manually"}.</label>)}</fieldset>}
         <label className="check-label"><input type="checkbox" checked={checks.finalReview} onChange={(e) => setChecks({ ...checks, finalReview: e.target.checked })} />I reviewed the saved copy, sources and any image checks.</label>
         <button className="button" disabled={!checks.finalReview || campaign.status !== "submitted" || (run.status !== "complete" && !(checks.facts && checks.claims && checks.tone))} onClick={() => act("approve")}>Approve saved version</button></>}
     </fieldset>
     {error && <p className="form-error" role="alert">{error}</p>}
-    {loaded && <details className="history"><summary>Comments and decision history ({view.events.length})</summary><ol>{view.events.map((event) => <li key={event.id}><strong>{event.actor_role} · {event.event_type.replaceAll("_", " ")}</strong> · {event.created_at}<p>{event.note}</p></li>)}</ol></details>}
+    {loaded && <><details className="history"><summary>Recent comments and decisions ({view.events.length}, up to 30)</summary><ol>{view.events.map((event) => <li key={event.id}><strong>{event.actor_role} · {event.event_type.replaceAll("_", " ")}</strong> · {event.created_at}<p>{event.note}</p></li>)}</ol></details><HistoryArchive kind="events" campaignId={campaign.id} /></>}
     {loaded && view.approvals.length > 0 && <details className="history"><summary>Recorded approvals ({view.approvals.length})</summary><ol>{view.approvals.map((a) => <li key={a.id}>{a.approved_at} · {a.review_mode} · reviewer {a.reviewer_id}<br /><small>Content snapshot {a.content_version_id} · Source snapshot {a.rulebook_id} · {a.id === approvals?.approval?.id && currentApproval ? "Current on last check" : "Historical"}</small></li>)}</ol></details>}
+    {loaded && view.approvals.length > 0 && <HistoryArchive kind="approvals" campaignId={campaign.id} />}
   </section>;
 }

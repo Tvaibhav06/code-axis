@@ -3,16 +3,26 @@ import { deskStateSchema, publishSourcesSchema, saveCampaignSchema } from "@/lib
 import { DemoError, requireDemoContext } from "./demo";
 import { isVersionConflict } from "@/lib/conflicts";
 
-export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>) {
+const campaignFields = "id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background)";
+export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>, options: { campaignId?: string; offset?: number } = {}) {
   const { client, lease } = context;
+  const offset = options.offset || 0;
+  const campaignQuery = () => client.from("campaigns").select(campaignFields).eq("workspace_id", lease.workspace_id)
+    .order("version", { referencedTable: "campaign_versions", ascending: false }).limit(1, { referencedTable: "campaign_versions" });
   const [workspace, rulebooks, campaigns] = await Promise.all([
     client.from("workspaces").select("name,rulebook_version").eq("id", lease.workspace_id).single(),
-    client.from("rulebooks").select("id,version,entries,published_at,published_by,logo_path,palette").eq("workspace_id", lease.workspace_id).order("version", { ascending: false }),
-    client.from("campaigns").select("id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background)")
-      .eq("workspace_id", lease.workspace_id).order("updated_at", { ascending: false }),
+    client.from("rulebooks").select("id,version,entries,published_at,published_by,logo_path,palette").eq("workspace_id", lease.workspace_id).order("version", { ascending: false }).limit(1),
+    campaignQuery().order("updated_at", { ascending: false }).order("id", { ascending: false }).range(offset, offset + 20),
   ]);
   if (workspace.error || rulebooks.error || campaigns.error) throw new DemoError(503, "The source library or campaigns could not load. Please retry after setup is complete.");
-  const state = deskStateSchema.safeParse({ workspaceName: workspace.data.name, rulebookVersion: workspace.data.rulebook_version, rulebooks: rulebooks.data, campaigns: campaigns.data });
+  const page = campaigns.data.slice(0, 20);
+  if (options.campaignId && !page.some((c) => c.id === options.campaignId)) {
+    const selected = await campaignQuery().eq("id", options.campaignId).maybeSingle();
+    if (selected.error) throw new DemoError(503, "The selected campaign could not load.");
+    if (selected.data) page.push(selected.data);
+  }
+  const state = deskStateSchema.safeParse({ workspaceName: workspace.data.name, campaignOffset: offset, hasMoreCampaigns: campaigns.data.length > 20,
+    rulebookVersion: workspace.data.rulebook_version, rulebooks: rulebooks.data, campaigns: page });
   if (!state.success) throw new DemoError(503, "Saved workspace data could not be read safely.");
   return state.data;
 }

@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { campaignSchema, publishSourcesSchema, saveCampaignSchema, sourceEntrySchema, wordCount } from "../../src/lib/content-schema";
 import { samplecoDraft, samplecoSources } from "../../src/lib/sampleco";
+import { archiveQuerySchema } from "../../src/lib/archive-schema";
+
+describe("History query boundaries", () => {
+  it("requires a campaign for its private history", () => {
+    expect(archiveQuerySchema.safeParse({ kind: "versions" }).success).toBe(false);
+    expect(archiveQuerySchema.safeParse({ kind: "sources" }).success).toBe(true);
+  });
+  it("rejects oversized, negative and invalid page requests", () => {
+    for (const input of [{ limit: 21 }, { offset: -1 }, { offset: "bad" }, { campaign: "not-a-uuid" }]) {
+      expect(archiveQuerySchema.safeParse({ kind: "sources", ...input }).success).toBe(false);
+    }
+  });
+});
 
 const campaignId = "00000000-0000-4000-8000-000000000100";
 const creatorId = "00000000-0000-4000-8000-000000000101";

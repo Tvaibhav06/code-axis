@@ -61,6 +61,7 @@ export const rulebookSchema = z.object({
 });
 export const deskStateSchema = z.object({
   workspaceName: z.string().default("SampleCo"),
+  campaignOffset: z.number().int().nonnegative().default(0), hasMoreCampaigns: z.boolean().default(false),
   rulebookVersion: z.number().int().nonnegative(),
   rulebooks: z.array(rulebookSchema), campaigns: z.array(campaignSchema),
 }).refine((state) => state.rulebookVersion === (state.rulebooks[0]?.version || 0), "The source publication changed while loading. Reload the workspace.");

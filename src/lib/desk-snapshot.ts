@@ -6,6 +6,6 @@ export const issueRowsSchema = z.array(z.object({ ruleId: z.uuid(), confirmed: z
 export const deskSnapshotSchema = z.object({
   state: deskStateSchema, campaignId: z.uuid().nullable(),
   review: reviewViewSchema.nullable(), reviewError: z.string(),
-  issueRows: issueRowsSchema, issueError: z.string(), aiAvailable: z.boolean(),
+  issueRows: issueRowsSchema, issueError: z.string(), aiAvailable: z.boolean(), fallbackAvailable: z.boolean().default(false),
 });
 export type DeskSnapshot = z.infer<typeof deskSnapshotSchema>;

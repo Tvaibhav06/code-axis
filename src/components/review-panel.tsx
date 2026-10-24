@@ -5,6 +5,7 @@ import type { Campaign, DeskState } from "@/lib/content-schema";
 import type { DemoRole } from "@/lib/demo-schema";
 import { HumanReview } from "./human-review";
 import { reviewPost } from "@/lib/review-client";
+import { HistoryArchive } from "./history-archive";
 function failureMessage(code: string | null) {
   if (!code) return "AI was switched off.";
   if (code === "session_or_global_allowance_unavailable" || code === "provider_quota") return "The AI allowance is unavailable or exhausted. Use exact checks and the manual reviewer checklist.";
@@ -14,9 +15,9 @@ function failureMessage(code: string | null) {
   if (["invalid_or_unavailable_output", "incomplete_output"].includes(code)) return "The AI response could not be verified. It has not been treated as a clean result.";
   return "AI checks could not complete with the current service settings. Continue with exact checks and manual review.";
 }
-export function ReviewPanel({ campaign, state, role, reload, view, loading, loadError, aiAvailable }: {
+export function ReviewPanel({ campaign, state, role, reload, view, loading, loadError, aiAvailable, fallbackAvailable }: {
   campaign: Campaign; state: DeskState; role: DemoRole; reload: () => Promise<void>;
-  view: ReviewView | null; loading: boolean; loadError: string; aiAvailable: boolean;
+  view: ReviewView | null; loading: boolean; loadError: string; aiAvailable: boolean; fallbackAvailable: boolean;
 }) {
   const runs = view?.runs || [];
   const [error, setError] = useState("");
@@ -40,7 +41,7 @@ export function ReviewPanel({ campaign, state, role, reload, view, loading, load
     {role === "creator" && <fieldset disabled={busy || loading || !!loadError || !state.rulebooks.length} className="plain-fieldset"><legend>Check settings</legend>
       <label className="check-label"><input type="checkbox" disabled={!aiAvailable} checked={aiAvailable && ai} onChange={(e) => setAi(e.target.checked)} />Include a real AI check</label>
       {!aiAvailable && <p className="help-text">AI is disabled on this server. Exact checks and the manual reviewer checklist are available.</p>}
-      {ai && <><label>Model<select value={model} onChange={(e) => setModel(e.target.value)}><option value="primary">Configured primary</option><option value="fallback">Configured fallback (select explicitly)</option></select></label><p className="help-text">No automatic retry or model switch. If the provider is unavailable, explicitly select the fallback or switch AI off for manual review.</p>
+      {ai && <>{fallbackAvailable ? <label>Model<select value={model} onChange={(e) => setModel(e.target.value)}><option value="primary">Configured primary</option><option value="fallback">Configured fallback (select explicitly)</option></select></label> : <p className="help-text">Using the configured primary model. No independent fallback is configured.</p>}<p className="help-text">No automatic retry or model switch. If the provider is unavailable, switch AI off for manual review. An explicit retry uses another attempt.</p>
         <label className="check-label"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />I am using fictional data. Google may use free-tier inputs and responses to improve its products.</label></>}
       <button className="button" disabled={aiAvailable && ai && !consent} onClick={() => action("check", { ai: aiAvailable && ai, consent, model })}>{busy ? "Working…" : "Run checks"}</button>
       <p className="help-text">Five free-tier attempts per demo session, subject to the shared quota. Provider failures count after an attempt is reserved. AI off keeps exact checks and requires manual review.</p></fieldset>}
@@ -52,7 +53,7 @@ export function ReviewPanel({ campaign, state, role, reload, view, loading, load
       <ul className="source-list">{current.findings.map((f) => <li key={f.id}><strong>{categoryLabels[f.category]}</strong> · {f.origin} · {f.blocking ? "Blocking until corrected or dismissed with a reason" : "Advisory"}
         <blockquote>{f.quote}</blockquote><p>{f.explanation}</p><small>Source: {state.rulebooks[0]?.entries.find((s) => s.id === f.rule_id)?.title || f.rule_id}</small>
         {f.suggestion && <><p>Suggested replacement: {f.suggestion}</p>{role === "creator" && <button disabled={busy} className="secondary-button" onClick={() => action("apply", { findingId: f.id })}>Apply to a new saved version</button>}</>}</li>)}</ul></>}
-    {runs.length > 0 && <details className="history"><summary>Saved check history ({runs.length})</summary>{runs.map((r) => <p key={r.id}>{r.created_at} · {r.status} · {r.findings.length} findings · {r.model || "AI off"}{r.id === current?.id ? " · current" : " · historical"}</p>)}</details>}
+    {runs.length > 0 && <><p className="help-text">The most recent ten checks are loaded. Approval is verified independently on the server.</p><HistoryArchive key={runs[0]?.id} kind="checks" campaignId={campaign.id} /></>}
   </section><HumanReview key={`${current?.id || "none"}-${campaign.status}`} campaign={campaign} run={current} role={role} reload={reload}
     view={view} loading={loading} loadError={loadError} rulebookId={state.rulebooks[0]?.id} /></>;
 }

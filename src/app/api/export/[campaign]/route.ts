@@ -11,9 +11,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cam
     const { campaign } = await params;
     if (!z.uuid().safeParse(campaign).success) throw new DemoError(400, "Choose a saved campaign.");
     const context = await requireDemoContext();
-    const review = await getReviewState(context, campaign);
+    const [review, state] = await Promise.all([getReviewState(context, campaign, true), getDeskState(context, { campaignId: campaign })]);
     if (!review.approval?.current) throw new DemoError(409, review.approval?.reason || "A current approval is required for export.");
-    const state = await getDeskState(context);
     let html;
     try { html = handoffHtml(state, campaign, review, process.env.NEXT_PUBLIC_SITE_URL || ""); }
     catch { throw new DemoError(409, "The approved snapshot changed or site settings are incomplete. Reload before exporting."); }

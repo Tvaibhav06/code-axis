@@ -237,6 +237,21 @@ test("saved copy → check → revise → independent approval → export → in
   await expect(page.getByRole("button", { name: "Run checks", exact: true })).toBeEnabled();
   await expect(page.getByText("No current approval", { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("approval-invalidated.png"), fullPage: true });
+  expect(state.rulebooks).toHaveLength(1);
+  expect(state.campaigns.every((c: { campaign_versions: unknown[] }) => c.campaign_versions.length === 1)).toBe(true);
+  const firstHistory = await (await context.request.get(`/api/desk/archive?kind=versions&campaign=${campaign.id}&limit=1`)).json();
+  expect(firstHistory.rows).toHaveLength(1);
+  expect(firstHistory.rows[0].version).toBe(campaign.current_version);
+  expect(firstHistory.nextOffset).toBe(1);
+  const olderHistory = await (await context.request.get(`/api/desk/archive?kind=versions&campaign=${campaign.id}&limit=1&offset=1`)).json();
+  expect(olderHistory.rows[0].version).toBe(campaign.current_version - 1);
+  expect((await context.request.get(`/api/desk/archive?kind=versions&campaign=${campaign.id}&limit=21`)).status()).toBe(400);
+  expect((await context.request.get("/api/desk/archive?kind=versions&campaign=00000000-0000-4000-8000-000000000000")).status()).toBe(404);
+  const history = page.locator("details").filter({ has: page.getByText("Saved content history", { exact: true }) });
+  await history.locator("summary").first().click();
+  await history.getByRole("button", { name: "Load history", exact: true }).click();
+  await expect(history.getByRole("button", { name: "All records loaded" })).toBeDisabled();
+  await expect(history.getByText(/Version 1 ·/)).toBeVisible();
   if (!realAi) {
     // Re-approve the changed content, then independently invalidate via sources.
     await check(false);

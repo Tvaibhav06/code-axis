@@ -8,6 +8,7 @@ import { ReviewPanel } from "./review-panel";
 import { AssetPreview, AssetUpload } from "./image-controls";
 import { contrastRatio, emptyImageReview } from "@/lib/image-schema";
 import { IssuesPanel } from "./issues-panel";
+import { HistoryArchive } from "./history-archive";
 
 const kindLabels = { terminology: "Approved name", trial_days: "Trial days", monthly_price: "Monthly price (INR)",
   offer: "Offer/code", tone: "Tone guidance", evidence: "Evidence requirement" };
@@ -79,7 +80,7 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
       </fieldset>
     </form> : data.rulebooks[0] ? <><AssetPreview path={data.rulebooks[0].logo_path} alt="Approved brand logo" /><p>Approved palette: {data.rulebooks[0].palette.join(", ") || "Not set"}</p><SourceList entries={data.rulebooks[0].entries} /></> : <p>No sources have been published. Switch to the manager to add them.</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
-    {data.rulebooks.length > 1 && <details className="history"><summary>Past published source versions</summary>{data.rulebooks.slice(1).map((book) => <details key={book.id}><summary>Version {book.version} · {book.published_at}</summary><SourceList entries={book.entries} /></details>)}</details>}
+    {data.rulebookVersion > 1 && <HistoryArchive kind="sources" />}
   </section>;
 }
 
@@ -101,7 +102,6 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
     catch (error) { setError(error instanceof Error ? error.message : "Save failed."); }
     finally { setBusy(false); }
   }
-  const versions = campaign?.campaign_versions.slice().sort((a, b) => b.version - a.version) || [];
   return <section className="editor-panel" aria-labelledby="campaign-heading">
     <h2 id="campaign-heading">{latest?.title || "New campaign"} {campaign && <span className="version-label">Version {campaign.current_version} · {campaign.status === "approved" ? "approval recorded; see current status below" : campaign.status.replaceAll("_", " ")}</span>}</h2>
     {editable ? <form onSubmit={save}><fieldset disabled={busy || uploading} className="plain-fieldset"><legend className="visually-hidden">Campaign draft</legend>
@@ -122,7 +122,7 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
     </fieldset></form> : latest ? <div><p><strong>Purpose:</strong> {latest.purpose}<br /><strong>Audience:</strong> {latest.audience}</p><pre className="copy-preview">{latest.body}</pre><p>Only this campaign&apos;s creator can save revisions.</p></div> : <p>No campaign is selected. The creator can add a draft.</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {!editable && latest?.image_path && <><div className="image-comparison"><div><h3>Saved campaign image</h3><AssetPreview path={latest.image_path} alt={latest.alt_text || "Alternative text missing"} /></div><div><h3>Approved logo</h3><AssetPreview path={book?.logo_path || null} alt="Approved brand logo" /><p>Palette: {book?.palette.join(", ") || "Not set"}</p></div></div><p>Alternative text: {latest.alt_text || "Missing"}</p><p>Saved manual checks: {Object.entries(latest.image_review).map(([k, v]) => `${k}: ${v ? "checked" : "missing"}`).join("; ")}</p><p>Selected pair: {latest.foreground} / {latest.background} · {contrastRatio(latest.foreground, latest.background).toFixed(2)}:1</p></>}
-    {versions.length > 1 && <details className="history"><summary>Previous saved versions</summary>{versions.slice(1).map((version) => <details key={version.id}><summary>Version {version.version} · {version.title}</summary><p>{version.purpose} · {version.audience}</p><pre className="copy-preview">{version.body}</pre></details>)}</details>}
+    {campaign && campaign.current_version > 1 && <HistoryArchive key={`${campaign.id}-${campaign.current_version}`} kind="versions" campaignId={campaign.id} />}
   </section>;
 }
 
@@ -135,19 +135,24 @@ export function WorkspaceEditor({ initialSnapshot, role, userId }: { initialSnap
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const inFlight = useRef<Promise<void> | null>(null);
-  function reload(id?: string): Promise<void> {
+  function reload(id?: string, offset = state.campaignOffset): Promise<void> {
     if (inFlight.current) return inFlight.current;
     const campaignId = id || selected;
     setPending(true); setMessage(""); setError("");
     const operation = (async () => {
       try {
-        const response = await fetch(`/api/desk/snapshot${campaignId ? `?campaign=${campaignId}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(25_000) });
+        const params = new URLSearchParams({ offset: String(offset) });
+        if (campaignId) params.set("campaign", campaignId);
+        const response = await fetch(`/api/desk/snapshot?${params}`, { cache: "no-store", signal: AbortSignal.timeout(25_000) });
         const data = await response.json().catch(() => null);
         if (!response.ok) throw new Error(data?.error || "The workspace could not reload.");
         const parsed = deskSnapshotSchema.safeParse(data);
         if (!parsed.success) throw new Error("Workspace data could not be read safely. Please reload.");
         setSnapshot(parsed.data);
         setSelected(parsed.data.campaignId || "");
+        const url = new URL(window.location.href);
+        if (parsed.data.campaignId) url.searchParams.set("campaign", parsed.data.campaignId); else url.searchParams.delete("campaign");
+        window.history.replaceState(null, "", url.pathname + url.search);
         setMessage("Saved version loaded from the workspace.");
       } catch (error) {
         const message = error instanceof Error ? error.message : "The workspace could not refresh. Please try Load latest again.";
@@ -171,9 +176,11 @@ export function WorkspaceEditor({ initialSnapshot, role, userId }: { initialSnap
         const id = event.target.value;
         if (!id) setSelected(""); else { void reload(id).catch(() => {}); }
       }}><option value="">New campaign</option>{state.campaigns.map((item) => <option key={item.id} value={item.id}>{item.campaign_versions.find((version) => version.version === item.current_version)?.title} · v{item.current_version}</option>)}</select></div>
+      <div className="form-actions"><button className="text-button" disabled={pending || state.campaignOffset === 0} onClick={() => { void reload(undefined, Math.max(0, state.campaignOffset - 20)).catch(() => {}); }}>Newer campaigns</button>
+        <button className="text-button" disabled={pending || !state.hasMoreCampaigns} onClick={() => { void reload(undefined, state.campaignOffset + 20).catch(() => {}); }}>Older campaigns</button></div>
       <CampaignEditor key={`${selected}-${campaign?.current_version || 0}-${state.rulebookVersion}`} book={state.rulebooks[0]} campaign={campaign} editable={role === "creator" && (!campaign || campaign.creator_id === userId)} reload={reload} />
       {campaign && <ReviewPanel key={`review-${campaign.id}-${campaign.current_version}-${state.rulebookVersion}`} campaign={campaign} state={state} role={role} reload={reload}
-        view={snapshot.campaignId === campaign.id ? snapshot.review : null} loading={pending} loadError={snapshot.reviewError} aiAvailable={snapshot.aiAvailable} />}
+        view={snapshot.campaignId === campaign.id ? snapshot.review : null} loading={pending} loadError={snapshot.reviewError} aiAvailable={snapshot.aiAvailable} fallbackAvailable={snapshot.fallbackAvailable} />}
     </>}
     <IssuesPanel sources={state.rulebooks[0]?.entries || []} rows={snapshot.issueRows} error={snapshot.issueError} loading={pending} refresh={reload} />
     </div>
