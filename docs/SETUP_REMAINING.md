@@ -9,7 +9,7 @@
 1. Verify actual Gemini quota/availability before any further provider request, then review app headroom for a conclusive ten-case pilot. Preserve both earlier reports. Do not use direct smoke calls to bypass the app budget.
 2. Finish the remaining Phase 6 failure checks and record any solo/unassisted usability limits.
 3. Once local verification is complete and deployment resumes, copy settings privately to Vercel, deploy the chosen source revision and verify the public project/repository access and fresh judge journey. No push or deployment has been performed for the later local Phase 6 work.
-4. Prepare and inspect the seven required Round 2 submission items, with truthful feature status, original-plan changes, three substantial Round 3 improvements and AI/code attribution.
+4. Finalise [the drafted submission pack](ROUND2_SUBMISSION.md) after the remaining checks. The six-page editable/PDF update and [detailed owner guide](LOCAL_RUN_AND_MANUAL_VERIFICATION.md) are prepared, with truthful feature status, changes, three substantial improvements and AI/code attribution. Update and inspect the final PDF against the actual release.
 
 ## 1. Apply the database migrations
 
@@ -77,4 +77,4 @@ Remove the diagnostic token and production smoke-user password after setup verif
 
 ## After a fresh setup
 
-Repeat the local checks against the new installation and consult the measured report for the existing project's actual results. Phase 7 still needs the seven-item submission pack and updated PDF. No runtime gate, evaluation result or deployment is marked complete merely because code is committed or pushed.
+Repeat the local checks against the new installation and consult the measured report for the existing project's actual results. Phase 7 documentation is drafted; the seven-item submission still needs final release results, access checks and the final PDF update. No runtime gate, evaluation result or deployment is marked complete merely because code is committed or pushed.

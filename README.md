@@ -8,7 +8,9 @@ The earlier shell is deployed at [brand-review-desk.vercel.app](https://brand-re
 
 ## Local setup
 
-Use Node 22 and npm. Install the pinned dependencies with `npm ci`. Copy `.env.example` to `.env.local`, enter values locally and keep that file out of Git. Start with `npm run dev`.
+For detailed owner instructions, use [quota recovery and local manual verification](docs/LOCAL_RUN_AND_MANUAL_VERIFICATION.md). The [Round 2 submission checklist](docs/ROUND2_SUBMISSION.md) includes the seven required items, suggested form text and the reviewed editable/PDF draft. These documents preserve the open pilot, timeout and deployment checks.
+
+Use Node 22 and npm. On a new checkout install the pinned dependencies with `npm ci`. Copy `.env.example` only if `.env.local` does not already exist, enter values locally and keep that file out of Git. Preserve the existing account manifest and secrets. Start with `npm run dev`; the detailed owner guide gives an AI-off mode for quota-safe manual checks.
 
 Checks: `npm run lint`, `npm run typecheck`, `npm run build`.
 

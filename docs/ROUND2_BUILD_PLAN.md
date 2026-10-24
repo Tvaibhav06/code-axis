@@ -4,7 +4,7 @@
 **Participant:** Vaibhav Tandon | **Email:** 24ucc077@lnmiit.ac.in
 **Revised:** 23 October 2026, incorporating the agreed cut ladder and Phase 0 start
 **Budget:** 26 focused hours, including checks and submission preparation, plus 4 hours of repair reserve. **Total: 30 hours.**
-**Status:** Phases 1–5 have local rule, real-permission and manual browser evidence. Phase 6 is partial: the ten-draft pilot and real-AI browser attempt failed the provider-reliability gate. See docs/PHASE6_VERIFICATION.md for measured results, original failures and remaining checks. Deployment is deferred at the owner's request; no full release or submission readiness is claimed.
+**Status refreshed 24 October 2026:** Phases 1–5 have local rule, real-permission and browser evidence, including a later one-call real-AI journey. Phase 6 remains partial: the first pilot missed its target and a separate rerun stopped on provider quota at case five. The product-timeout check and final public release checks remain open. Phase 7 documentation is drafted at the owner's request, with these limitations retained. See docs/PHASE6_VERIFICATION.md. Deployment is deferred; no submission readiness is claimed.
 
 ## 1. What this revision changes
 
@@ -42,23 +42,23 @@ The first 55 marks determine the build order. Tables and reusable form component
 
 ## 2. Round 1 continuity and Round 2 scope
 
-**Status reflects implementation, not a completion claim.** Partial includes prepared code whose service/browser gates remain unverified. No row is Complete merely because code compiles. See BUILD_LOG.md for evidence.
+**Status distinguishes local evidence from release readiness.** No row claims a verified public deployment. Partial includes implemented code whose quality or full manual checks remain open. See BUILD_LOG.md and docs/PHASE6_VERIFICATION.md for evidence.
 
 | ID | Round 1 promise | Round 2 status/scope | Reason or change |
 |---|---|---|---|
-| R01 | One brand; creator, manager and reviewer | Partial: identity/lease/RLS foundation and pre-seed code prepared | Real seeded-account/isolation tests pending setup |
-| R02 | Up to 30 short rules/facts, owners, sources, dates, logo and palette | Partial: source publications and validated private logo/palette controls prepared | Input boundaries pass locally; live persistence/asset permissions pending |
-| R03 | English text up to 1,500 words; optional PNG/JPG up to 5 MB | Partial: numbered text/image saves and real decoder validation prepared | Local size/type/decoder tests pass; deployed private uploads pending |
-| R04 | Exact terminology and fact checks | Partial: Phase 3 checks prepared and tested locally | No claim of general fact verification; live saved results pending |
-| R05 | AI tone, messaging and unsupported-claim suggestions | Partial: real request, limits, explicit model selection and failure path prepared | Earlier 3.6 connectivity fixture passed; product accuracy/live journey pending |
-| R06 | Three finding categories, quotes, sources, suggested fixes | Partial: source/span validation and explicit new-version correction prepared | Invalid output rejection passes locally; live persistence pending |
-| R07 | Comments, disputes, revisions and independent approval | Partial: decision history and independent approval prepared | Role/transaction tests prepared; execution pending service setup |
-| R08 | Content/source changes invalidate approval | Partial: fresh approval-state function prepared | Edit/source/re-check/expiry paths await real database verification |
-| R09 | Image checklist, alt text, selected-pair contrast, readability | Partial: Phase 5 controls and approval gates prepared | Local contrast/decoder tests pass; no automated logo detection or pixel-picker |
-| R10 | Recurring confirmed issues, disputed rules, clarification requests | Partial: deduplicated issue table and clarification notes prepared | Local deduplication checks pass; live review history pending; no cut activated |
-| R11 | Approved-material handoff and decision trail | Partial: escaped HTML snapshot and fresh approval checks prepared | Local escaping/stale-snapshot tests pass; live download comparison pending |
-| R12 | Private content, AI disclosure/off switch and manual recovery | Partial: private access, disclosure, AI-off and manual checklist prepared | Actual private-policy/manual recovery tests pending; fictional data only |
-| R13 | Keyboard use, labelled controls and text statuses | Partial: native labelled controls/statuses prepared | Deployed keyboard/unassisted walkthrough pending |
+| R01 | One brand; creator, manager and reviewer | Locally verified: entry, real identities, refresh and role isolation | Public release verification remains pending |
+| R02 | Up to 30 short rules/facts, owners, sources, dates, logo and palette | Locally verified: versioned sources, private logo and palette | Boundaries/permissions and browser publication passed |
+| R03 | English text up to 1,500 words; optional PNG/JPG up to 5 MB | Locally verified: numbered snapshots, private decoded assets | Exactly 5,242,880-byte browser upload passed; one extra byte rejected |
+| R04 | Exact terminology and fact checks | Locally verified for supported patterns and saved findings | No claim of general fact verification |
+| R05 | AI tone, messaging and unsupported-claim suggestions | Partial reliability: real integration and one later AI-assisted journey passed | Pilot remains inconclusive amid HTTP 503/quota failures |
+| R06 | Three finding categories, quotes, sources, suggested fixes | Implemented; source/span/category boundaries tested | Suggestions create a new saved version; model quality remains open |
+| R07 | Comments, disputes, revisions and independent approval | Locally verified for central journey and permission gates | Comments/decisions retained; no automatic approval |
+| R08 | Content/source changes invalidate approval | Locally verified: edits, source changes, expiry and stale export | Historical approvals remain readable; current status recomputed |
+| R09 | Image checklist, alt text, selected-pair contrast, readability | Locally verified: image journey and approval gates | Manual visual checks; no OCR, automatic logo detection or pixel-picker |
+| R10 | Recurring confirmed issues, disputed rules, clarification requests | Implemented with narrower verification; full manual UI check remains | Unit deduplication passed; no cut activated |
+| R11 | Approved-material handoff and decision trail | Locally verified: actual escaped HTML download and stale-export denial | Original image stays private in app |
+| R12 | Private content, AI disclosure/off switch and manual recovery | Locally verified: real permissions, shared exhaustion and manual recovery | Fictional data only; external free-tier processing disclosed |
+| R13 | Keyboard use, labelled controls and text statuses | Limited local pass: keyboard skip link and 390 px page width | Full accessibility audit/unassisted trial and public checks pending |
 
 **Changes to state explicitly in the updated PDF:**
 
