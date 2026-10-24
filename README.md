@@ -1,85 +1,446 @@
 # Brand Review Desk
 
-A focused CodeAxis project by DIZZY DEV (Vaibhav Tandon). Review campaign content against approved brand sources and keep approval with a human reviewer.
+Brand Review Desk helps a marketing team check campaign content against approved facts, guidelines and assets before publication. Creators get specific feedback, make corrections and send a saved revision to a separate reviewer. The final decision stays with a person.
 
-## Current status
+For example, SampleCo offers a **14-day trial**, but a draft promises **30 days**. The app identifies the conflict, points to the approved fact and suggests a correction. Approval belongs to the version that was reviewed, so later edits cannot silently reuse it.
 
-The earlier shell is deployed at [brand-review-desk.vercel.app](https://brand-review-desk.vercel.app); the reviewed product workflow still needs public verification after release. **Phases 1–5 are implemented and have local runtime evidence.** Migrations 001–007 and seeds are applied; real permission checks passed. Local Chromium journeys passed with actual demo allocation, saved checks, human approval, private images and HTML download. A later one-call real-AI journey also passed after earlier provider failures. **Phase 6 remains partial: the first pilot missed its target, and an authorised rerun stopped on provider quota after five cases.** Local demo access is enabled. The owner has now authorised pushing the reviewed code for Vercel's Git deployment; production settings and the deployed workflow must be checked separately. See [the measured report](docs/PHASE6_VERIFICATION.md), [setup/release checklist](docs/SETUP_REMAINING.md) and BUILD_LOG.md. Committed code is not proof of a deployed working workflow.
+**[Open the live demo](https://brand-review-desk.vercel.app/)** · **[Browse the source](https://github.com/Tvaibhav06/code-axis)**
 
-## Local setup
+[Workflow](#workflow) · [Architecture](#architecture) · [Data model](#data-model) · [Run locally](#run-locally) · [Testing](#testing) · [Known limitations](#known-limitations)
 
-For detailed owner instructions, use [quota recovery and local manual verification](docs/LOCAL_RUN_AND_MANUAL_VERIFICATION.md). The [Round 2 submission checklist](docs/ROUND2_SUBMISSION.md) includes the seven required items, suggested form text and the reviewed editable/PDF draft. These documents preserve the open pilot, timeout and deployment checks.
+## What the app supports
 
-Use Node 22 and npm. On a new checkout install the pinned dependencies with `npm ci`. Copy `.env.example` only if `.env.local` does not already exist, enter values locally and keep that file out of Git. Preserve the existing account manifest and secrets. Start with `npm run dev`; the detailed owner guide gives an AI-off mode for quota-safe manual checks.
+| Area | Capability |
+|---|---|
+| Approved sources | Versioned guidelines, facts, terminology, owners, references, validity dates, logo and palette |
+| Campaigns | Purpose, audience, English copy, numbered revisions and an optional private image |
+| Explainable checks | Supported terminology/fact checks and optional AI findings with quoted text and source references |
+| Human review | Comments, clarification, reasoned decisions, submission and independent approval |
+| Approval safeguards | Content/source/run binding, unresolved-blocker gates, relevant expiry checks and stale-export rejection |
+| Image review | Validated uploads, alt text, manual visual checks and contrast for a selected colour pair |
+| History and handoff | Paged revision history, deduplicated issue counts and a downloadable HTML review record |
 
-Checks: `npm run lint`, `npm run typecheck`, `npm run build`.
+The demo and AI integrations have [known limitations](#known-limitations). A successful build or homepage response does not establish that a deployed review journey passes end to end.
 
-The rule-unit group uses Vitest: `npm run test:rules`. It covers input boundaries, exact checks, AI source/span validation, actual image decoding, contrast, issue deduplication and escaped export. The real permission group uses seeded Supabase accounts. `npm run test:browser` provides the single Playwright journey; `npm run pilot` records the ten frozen development cases. The later AI-assisted journey passed, including exactly 5,242,880-byte browser upload, approval/download and invalidation. The first pilot completed AI for only 4/10 cases amid repeated HTTP 503 responses. **Phase 6 is partial.** See [the measured report](docs/PHASE6_VERIFICATION.md) for failures, reruns, commands, allowance and open gates. No CI pipeline or broad DB-test framework has been added. Next uses its supported Webpack builder; the setup checklist documents the optional local build directory.
+## Roles
 
-The public `/api/health` endpoint checks the application shell only. It intentionally makes no claim that any external service is connected.
+| Role | Responsibilities |
+|---|---|
+| Creator | Save drafts, run checks, apply chosen corrections and submit revisions |
+| Manager | Publish approved sources/assets and answer clarification requests |
+| Reviewer | Inspect submitted content, resolve findings, request changes and approve independently |
 
-## Real Phase 0 service checks
+The demo uses separate authenticated accounts for these roles. Role checks are enforced on the server and in database functions, not just by hiding interface controls.
 
-1. Use a dedicated Supabase project. Apply `supabase/migrations/202610230001_phase0_smoke.sql` in its SQL editor or migration tooling. This creates only an owner-isolated temporary test table and a private PNG test bucket. The application schema belongs to Phase 1.
-2. Create one fictional test user in Supabase Auth, with an email/password login. Put the project URL, publishable key and that user's credentials into `.env.local`. These checks never need a service-role key.
-3. Add the Gemini API key from your **free-tier** project and keep `GEMINI_BILLING_TIER=free`. Only the fixed fictional SampleCo fixture is sent by these checks. **Google may use free-tier inputs and responses to improve its products.** Never enter confidential, client or personal information. The setting records the intended tier; it cannot inspect or change Google's actual billing. If you later choose paid access, configure its cap in AI Studio before setting `GEMINI_BILLING_TIER=paid`, `GEMINI_PAID_PROJECT_CONFIRMED=true` and `GEMINI_MONTHLY_SPEND_CAP_USD`.
-4. Run `npm run smoke:services`. The script uses the real services: authenticated insert/read/delete, private image upload/download/anonymous denial/cleanup, and one structured response from each configured Gemini model. Only sanitised summaries are printed. Missing settings return **blocked** and a failing exit code, never a false pass.
-5. For deployed verification, set the same variables in the dedicated Vercel project and set a random `PHASE0_SMOKE_TOKEN` of at least 32 characters. Configure Node 22. Then run `npm run smoke:deployment -- https://your-project.vercel.app` locally. Only the token travels to this protected project endpoint; it reads service credentials from its own server environment.
-6. Remove `PHASE0_SMOKE_TOKEN` and the smoke-user password from production settings when setup is finished, then redeploy. This disables the diagnostic route. It is not a public review API and has no public judge call budget.
+## Workflow
 
-There is no automatic retry or fallback switch. Both model IDs are configured candidates until their actual calls pass. The single-turn `generateContent` REST API remains supported; using native fetch avoids another SDK dependency. The smoke fixture only verifies structured extraction, not the full review engine's accuracy.
+Checks always use saved copy and a published source snapshot. An AI request is optional; an incomplete response requires explicit manual review rather than being treated as a clean result.
 
-For a focused recheck, use `npm run smoke:services -- supabase`, `-- primary` or `-- fallback`. The result includes its scope; a passing single-model check does not certify all integrations. The deployed diagnostic always checks the full set.
+```mermaid
+flowchart TD
+    Sources[Manager publishes sources] --> Draft[Creator saves a revision]
+    Draft --> Checks[Exact checks and optional AI review]
+    Checks --> Findings[Quoted findings and suggested corrections]
+    Findings -->|Ready for review| Submit[Submit the checked revision]
+    Submit --> Review[Independent reviewer resolves blockers and required checks]
+    Review -->|Requirements met| Approve[Approve these snapshots]
+    Approve --> Export[Revalidate and download HTML]
+    Approve -->|Content or sources change, or support expires| Historical[Previous approval becomes historical]
+    Findings -->|Revise| Draft
+    Review -->|Changes needed| Draft
+    Historical --> Draft
+```
 
-Import [Tvaibhav06/code-axis](https://github.com/Tvaibhav06/code-axis) into Vercel, select Next.js, leave Root Directory at the repository root and use Node 22. Add secrets in Vercel environment variables, never in Git. The shell can build without service keys; service checks will stay blocked until they are configured. After deployment, set `NEXT_PUBLIC_SITE_URL` to its actual HTTPS URL and run the deployed check. A local build or Git push does not verify deployment.
+Suggestions do not overwrite copy automatically. A creator chooses a correction and saves a new revision. Clarification notes also do not change approved facts; managers must publish an updated source snapshot for that.
 
-The supplied Supabase project is `https://uyowubvbofkahdoovfxb.supabase.co`. Its URL is public configuration; its publishable key and test-account settings must still be entered locally. No migration has been applied automatically.
+## Architecture
 
-## Phase 1 setup and verification
+The interface, server-rendered workspace and API routes live in one Next.js application. Protected requests validate the active identity, demo lease and workspace role. Ordinary product reads/writes use the signed-in user's Supabase permissions.
 
-1. Apply `supabase/migrations/202610230002_phase1_foundation.sql` after the Phase 0 migration, using the project's SQL editor or your migration tooling. This creates workspace memberships, private asset access, demo leases and attempt counters. SQL has not been applied merely because the file exists.
-2. Add the Supabase server secret/service-role key as `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`. Keep `DEMO_ACCESS_ENABLED=false`. Trusted server use is restricted to demo allocation, validated check results and decoded-asset registration after lease/role checks. Normal content, review and approval operations use the signed-in user's RLS permissions. The setup script also pre-provisions accounts. No runtime route creates accounts.
-3. Run `npm run seed:demo`. Default: **24 judge workspaces plus two isolated verification workspaces**, three real Auth identities each. Fictional `example.test` addresses are confirmed through the admin API without sending email. The script persists generated credentials only in `.env.local` as `DEMO_POOL_ACCOUNTS_JSON`, and replaces smoke-user settings with the first verification creator. No secrets are printed. Re-run with the same file to resume; it preserves claimed slots. Increasing `DEMO_POOL_SIZE` appends capacity; shrinking/recycling is refused.
-4. Run the Supabase smoke check and `npm run test:permissions -- --foundation-only`. The latter uses the two verification workspaces for actual role, cross-workspace, privileged-RPC and private-file checks. Its admin key is used only for unique test-image cleanup. It does not substitute mocks for a real database or claim later approval tests have passed.
-5. Copy the server key, generated manifest and required settings privately into Vercel. For the deployed Phase 0 check, the same `PHASE0_SMOKE_TOKEN` must be present locally and in Vercel. Deploy again after environment changes. Never commit `.env.local` or paste secrets into chat.
-6. This revision includes Phases 2–5 and migration `202610240007_explicit_version_conflicts.sql`. Apply all unapplied migrations through 007 and the content seed before enabling the workspace. If 001–006 already succeeded, apply only 007. After service/permission checks pass, enable `DEMO_ACCESS_ENABLED=true`, redeploy, then verify two fresh browser sessions receive separate workspaces, roles switch correctly and refresh restores access. Only then close the Phase 1 runtime gate. Disable entry again if the gate fails.
+```mermaid
+flowchart TD
+    Browser[Browser and React interface]
+    Auth[Supabase Auth]
+    DB[(Postgres, RLS and SQL functions)]
+    Storage[(Private Supabase Storage)]
+    Gemini[Gemini API]
 
-The public entry reserves a pre-provisioned slot atomically, uses an opaque HttpOnly lease cookie and signs in with real Supabase Auth. An eight-hour lease is never automatically recycled. Role switching accepts only a role name and resolves the account from that lease; callers cannot supply account/workspace IDs. Mutations require the same request origin. Auth cookies are renewed with the standard Supabase SSR client and Next.js proxy.
+    subgraph App[Next.js application]
+        Entry[Server pages and API routes]
+        Access[Identity, lease and role checks]
+        Services[Content and review services]
+        Rules[Exact rule engine]
+        AI[AI adapter and Zod validation]
+        Images[Sharp image validation]
+        Export[Approval check and HTML export]
+        Entry --> Access --> Services
+        Services --> Rules
+        Services --> AI
+        Services --> Images
+        Services --> Export
+    end
 
-`DEMO_AI_ATTEMPT_LIMIT=5` is the free-tier setting. `GLOBAL_AI_ATTEMPT_LIMIT=0` leaves public AI calls disabled until the owner chooses an allowance from actual provider quota; setup does not assume a free-tier quota. The check route reserves a database attempt before calling Gemini, with conditional global/session updates in one transaction. Actual limit-exhaustion verification remains pending service setup. No automatic counter reset is provided.
+    Browser --> Entry
+    Access <--> Auth
+    Access -->|Resolve lease and membership| DB
+    Services <--> DB
+    Browser -->|Authenticated direct image upload| Storage
+    Images -->|Download and decode| Storage
+    Images -->|Register trusted metadata| DB
+    AI <-->|Saved text and approved sources| Gemini
+    Export -->|Recompute approval eligibility| DB
+    Export -->|Escaped HTML record| Browser
+```
 
-Private assets allow member reads and creator/manager uploads under their own workspace/user path. Browser overwrite and deletion are denied. Phase 5 adds direct storage upload and trusted signature/MIME/full-decoder verification before a saved version can reference an image: still PNG/JPG, 5 MB, 4096 pixels per side, 16 megapixels. Image bytes stay unchanged. Failed/abandoned uploads can remain unreferenced in the private demo bucket; no cleanup service was added. Runtime private-file tests remain pending.
+| Component | Technology |
+|---|---|
+| Application | Next.js App Router, React, TypeScript and Node.js |
+| Identity and data | Supabase Auth, Postgres and Row Level Security |
+| Files | Private Supabase Storage and Sharp |
+| Review | TypeScript exact rules, Gemini REST API and Zod |
+| Hosting | Vercel |
+| Verification | Vitest, real-account permission checks and Playwright |
 
-## Phase 2 setup and verification
+Dependency versions are pinned in [package.json](package.json) and [package-lock.json](package-lock.json). The project requires Node.js 22 as declared in its engine settings.
 
-1. Apply `supabase/migrations/202610230003_phase2_sources_campaigns.sql` after the two earlier migrations.
-2. Run `npm run seed:content` locally after `seed:demo`. It signs in as each workspace's real manager/creator, publishes six fictional SampleCo sources and saves the original 30-day/50%-savings draft. It preserves existing publications and campaigns on rerun; it does not reset used workspaces. This is setup data, not a canned check result.
-3. Run `npm run test:rules`, `npm run test:permissions`, and `npm run check`. The extended permission group checks manager-only publication, 30/31 source limits, creator-only saves, 1,500/1,501-word limits, stale saves, cross-workspace denial and preservation of old snapshots. These real-data assertions remain pending until the project is configured.
-4. In the deployed browser, change a manager source and publish, switch to creator, save/reload a campaign revision and inspect old versions. Attempt invalid dates/limits and denied roles. Keep the Phase 2 gate open until these results are recorded. No approval or AI result is produced by this phase.
+Trusted server access is restricted to demo allocation, recording validated check results and registering decoded assets after access checks. The browser cannot forge trusted AI results or image-validation metadata. Server keys and the private account manifest never belong in client code.
 
-The API derives workspace/user scope from the active lease and validated Auth identity. Published source rows and saved copy rows have no direct client mutation grants. The save/publication functions validate permissions and expected versions in the database; saves update the same campaign row used by the planned Phase 4 approval function. A failed network response asks the user to load latest before retrying, because a committed save may outlive a lost response.
+## Data model
 
-## Scope and decisions
+The diagrams show the principal tables and selected columns. They omit some repeated user/workspace foreign keys for readability. `auth_users` represents Supabase's `auth.users`; application tables are in the `public` schema.
 
-- Prepared server/SQL controls enforce **5 AI attempts per lease on the free tier**, across all three roles. Failed calls and explicit retries count after reservation. Fifteen attempts remain an option only after paid access and sufficient global headroom are configured. Live limit enforcement is unverified until setup/tests pass. Configure the global allowance from actual provider quota before opening the interactive demo.
-- The prepared approve function starts with a campaign-row `SELECT ... FOR UPDATE`; saves, check publication and review mutations coordinate on that row. Source publication is locked while verifying the current rulebook. Live transaction behaviour still needs Supabase verification.
-- If behind schedule: defer clarification features first; then reduce the issue table to deduplicated counts. Mark R10 Partial and disclose cuts. Preserve normal review comments and the core workflow.
-- Round 3 starts with a PDF-extraction spike on Vercel, since PDF review and guideline import share it.
-- The implementation plan is kept in `docs/ROUND2_BUILD_PLAN.md`.
+### Content and workspace access
 
-## Development history and disclosure
+```mermaid
+erDiagram
+    auth_users ||--o{ workspace_members : has_memberships
+    workspaces ||--o{ workspace_members : has_members
+    workspaces ||..o{ rulebooks : stores
+    workspaces ||..o{ campaigns : contains
+    campaigns ||..o{ campaign_versions : has_revisions
+    auth_users ||..o{ campaigns : creates
+    workspaces ||..o{ validated_assets : owns
+    auth_users ||..o{ validated_assets : uploads
 
-OpenAI Codex assisted with planning and generated this initial implementation, migration, scripts and documentation. Vaibhav is responsible for reviewing, understanding and validating the code. The Round 1 proposal also attributed research assistance to Claude; that is not a claim of Claude-generated Round 2 code.
+    auth_users {
+        uuid id PK
+    }
+    workspaces {
+        uuid id PK
+        text name
+        integer rulebook_version
+    }
+    workspace_members {
+        uuid workspace_id PK, FK
+        uuid user_id PK, FK
+        text role
+    }
+    rulebooks {
+        uuid id PK
+        uuid workspace_id FK
+        integer version
+        jsonb entries
+        text logo_path
+        jsonb palette
+    }
+    campaigns {
+        uuid id PK
+        uuid workspace_id FK
+        uuid creator_id FK
+        integer current_version
+        text status
+    }
+    campaign_versions {
+        uuid id PK
+        uuid campaign_id FK
+        integer version
+        text body
+        text image_path
+        text alt_text
+    }
+    validated_assets {
+        text path PK
+        uuid workspace_id FK
+        uuid owner_id FK
+        text mime
+        text sha256
+    }
+```
 
-This is a fresh implementation using Next.js, React, Supabase, Zod, Sharp and their standard APIs, with Vitest for rule tests. No purchased UI template or previous finished product was used. OpenAI Codex generated substantial code for the checks, approval functions, upload validation, export, tests and setup instructions. Vaibhav must review and be able to explain these parts. Dependency versions/licences are recorded in the lockfile/package metadata. Keep small, factual, unsquashed commits during the build window.
+Each rulebook is an immutable publication. Individual source entries live inside `rulebooks.entries` as JSON, not in a separate sources table. `logo_path` and `image_path` are checked storage-path references, not SQL foreign keys to `validated_assets`.
 
-## Reference documentation
+### Checks, decisions and approval
 
-- [Performance repairs, measured results and workflow verification](docs/PERFORMANCE_FIXES_AND_WORKFLOW.md)
+```mermaid
+erDiagram
+    campaign_versions ||..o{ check_runs : checked_in
+    rulebooks ||..o{ check_runs : provides_sources
+    check_runs ||..o{ findings : produces
+    campaign_versions ||..o{ review_events : discussed_in
+    findings |o..o{ review_events : referenced_by
+    campaign_versions ||..o{ approvals : approved_snapshot
+    rulebooks ||..o{ approvals : source_snapshot
+    check_runs ||..o{ approvals : check_snapshot
 
-- [Next.js installation](https://nextjs.org/docs/app/getting-started/installation)
-- [Supabase row-level security](https://supabase.com/docs/guides/database/postgres/row-level-security)
-- [Gemini generateContent API](https://ai.google.dev/api/generate-content)
-- [Gemini billing controls](https://ai.google.dev/gemini-api/docs/billing)
-- [Gemini data-use terms](https://ai.google.dev/gemini-api/terms)
-- [Postgres row locks](https://www.postgresql.org/docs/current/explicit-locking.html)
+    campaign_versions {
+        uuid id PK
+        uuid campaign_id FK
+        integer version
+    }
+    rulebooks {
+        uuid id PK
+        uuid workspace_id FK
+        jsonb entries
+    }
+    check_runs {
+        uuid id PK
+        uuid content_version_id FK
+        uuid rulebook_id FK
+        text status
+        jsonb supported_source_ids
+    }
+    findings {
+        uuid id PK
+        uuid run_id FK
+        uuid rule_id
+        text category
+        boolean blocking
+    }
+    review_events {
+        uuid id PK
+        uuid content_version_id FK
+        uuid finding_id FK
+        text event_type
+        text note
+    }
+    approvals {
+        uuid id PK
+        uuid content_version_id FK
+        uuid rulebook_id FK
+        uuid run_id FK
+        uuid reviewer_id FK
+        text review_mode
+    }
+```
+
+`review_events.finding_id` is nullable because comments and submissions need not target a finding. A finding's `rule_id` identifies a JSON source entry and is validated against its run's rulebook; it is not a foreign key to a separate rule table. Demo slots, leases and allowance settings live in `brd_private` and are excluded from these product diagrams. See [SQL migrations](supabase/migrations) for the complete constraints and policies.
+
+## Approval safeguards
+
+An approval records the content revision, rulebook and check run that were reviewed. The database locks the campaign row while checking eligibility, preventing an approval from silently carrying over to a concurrently saved revision.
+
+```mermaid
+sequenceDiagram
+    actor Creator
+    actor Reviewer
+    participant App as Next.js server
+    participant DB as Postgres
+
+    Creator->>App: Save revision and run checks
+    App->>DB: Store version, check run and findings
+    DB-->>App: Saved snapshot identifiers
+    Creator->>App: Submit saved revision
+    App->>DB: Record submission
+    Reviewer->>App: Approve expected snapshots and checklist
+    App->>DB: approve_campaign
+    Note over DB: Lock row and verify approval requirements
+    alt State changed or requirements unmet
+        DB-->>App: Reject approval
+        App-->>Reviewer: Explain conflict or missing review
+    else Current and eligible
+        DB-->>App: Record approval
+        App-->>Reviewer: Display approval for saved version
+    end
+    opt Creator saves another revision
+        Creator->>App: Save updated content
+        App->>DB: Store new immutable revision
+    end
+    Reviewer->>App: Download approved record
+    App->>DB: Check approval before and after HTML assembly
+    alt Approval still current
+        App-->>Reviewer: Download HTML record
+    else Snapshot changed or support expired
+        App-->>Reviewer: Reject stale export and require review
+    end
+```
+
+The actual checks also enforce independent review, resolved blocking findings and required manual/image checklists. Relevant source expiry is evaluated when approval state is computed. Historical approvals remain readable; they are not proof that the current campaign is approved.
+
+## Use the deployed demo
+
+Open [Brand Review Desk](https://brand-review-desk.vercel.app/) and select **Start demo**. Signup is not required. Each session receives an isolated fictional workspace. Keep the same browser session while exploring; another private session consumes another demo slot.
+
+1. As **Creator**, open the seeded campaign and choose **Run checks**, leaving **Include a real AI check** off.
+2. Inspect the 30-day trial conflict and its approved 14-day source.
+3. Replace the copy with `Try SampleCo free for 14 days.`, save the new version and run checks again.
+4. Add a note and choose **Submit saved version for review**.
+5. Switch to **Reviewer** and wait for the role change to finish. Inspect the saved copy/sources, complete the required manual checks and approve.
+6. Download the HTML record. Return to Creator, edit and save; the old approval should become historical.
+
+Managers can publish sources, logos and palettes or answer clarification requests. Image review also requires alternative text, explicit manual checks and suitable contrast for the selected colour pair. See [manual verification guidance](docs/LOCAL_RUN_AND_MANUAL_VERIFICATION.md) for additional cases.
+
+**Known demo issue:** role switching can stall at **Updating your sign-in…**. This has interrupted a deployed review journey. Do not assume the new role or an action completed while the interface remains pending. Reloading is a troubleshooting step, not a verified recovery guarantee.
+
+## Run locally
+
+### Prerequisites and installation
+
+- Node.js 22 and npm.
+- A Supabase project with the application migrations applied.
+- Internet access: a local Next.js process still uses remote Supabase services.
+- Gemini credentials only if you deliberately enable real AI checks.
+
+```bash
+git clone https://github.com/Tvaibhav06/code-axis.git
+cd code-axis
+npm ci
+```
+
+On Windows PowerShell, use `npm.cmd` and `npx.cmd` if script execution policy blocks `npm` or `npx`.
+
+### Configure services
+
+If this checkout is already configured, preserve its `.env.local`, account manifest and usage counters. Do not rerun schema creation or recreate accounts simply to start the app.
+
+For a new development project:
+
+1. Copy `.env.example` to `.env.local` only if the latter does not exist. Enter your Supabase URL, publishable key and server-only service-role/secret key.
+2. Apply the files in [supabase/migrations](supabase/migrations) once, in filename order. Apply only missing migrations to an existing database.
+3. Keep demo entry and AI disabled during setup. A small **new** pool can use `DEMO_POOL_SIZE=2`, `DEMO_AI_ATTEMPT_LIMIT=5`, `GLOBAL_AI_ATTEMPT_LIMIT=0`, `GEMINI_BILLING_TIER=free` and `AI_CHECKS_ENABLED=false`.
+4. Run `npm run seed:demo`, followed by `npm run seed:content`. These write real fictional accounts/content to your configured Supabase project. The account manifest and verification credentials are saved privately in `.env.local`.
+5. Set `DEMO_ACCESS_ENABLED=true` and `NEXT_PUBLIC_SITE_URL=http://localhost:3137`.
+
+The pool also includes two dedicated verification workspaces. Do not shrink an existing pool, replace a manifest or reset consumed allowance while configuring a checkout.
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser-safe publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only trusted operations and setup |
+| `DEMO_POOL_ACCOUNTS_JSON` | Generated private demo-account manifest |
+| `DEMO_ACCESS_ENABLED`, `DEMO_POOL_SIZE` | Demo entry and pool configuration |
+| `DEMO_AI_ATTEMPT_LIMIT`, `GLOBAL_AI_ATTEMPT_LIMIT` | Database-backed application allowances |
+| `AI_CHECKS_ENABLED` | Server switch for real AI requests |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` | Optional Gemini credentials and model identifiers |
+| `GEMINI_BILLING_TIER` | Intended service tier; does not change provider billing |
+| `NEXT_PUBLIC_SITE_URL` | Local or deployed app origin |
+
+Never add a `NEXT_PUBLIC_` prefix to server keys or the account manifest. Changing an allowance in a file does not reset usage or automatically update the database setting. Use the setup script intentionally and preserve existing consumption.
+
+### Start the app
+
+After configuration, use PowerShell to start without provider calls:
+
+```powershell
+$env:AI_CHECKS_ENABLED = 'false'
+npm.cmd run dev -- --port 3137
+```
+
+Wait for **Ready**, then open [http://localhost:3137](http://localhost:3137/). Use `localhost` consistently. The terminal override keeps real AI off even if saved settings enable it.
+
+If the port is occupied, stop the earlier server or use another port consistently in the app URL, site setting and browser-test base URL. For a local production build, stop the dev server and run:
+
+```powershell
+npm.cmd run build
+npm.cmd run start -- --port 3137
+```
+
+## Testing
+
+### Rules and code quality
+
+```bash
+npm run test:rules
+npm run lint
+npm run typecheck
+npm run build
+```
+
+These checks need no Gemini requests. Stop the dev server before building so both processes do not share an output directory. A passing build does not establish that external services or the deployed workflow are healthy.
+
+### Database and storage permissions
+
+With migrations and verification accounts configured:
+
+```bash
+npm run test:permissions
+npm run smoke:services -- supabase
+```
+
+These use real Supabase Auth, database and private Storage. The permission suite writes fictional fixtures in dedicated verification workspaces. Its labelled manual fixtures are not AI accuracy evidence.
+
+### Browser journey
+
+Start the app, then use a second PowerShell terminal:
+
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = '.cache/pw-browsers'
+npx.cmd playwright install chromium
+$env:PHASE6_BASE_URL = 'http://localhost:3137'
+$env:PHASE6_AI = 'false'
+$env:PHASE6_IMAGES = 'true'
+$env:PHASE6_ALLOWANCE_EXHAUSTED = 'false'
+npm.cmd run test:browser
+```
+
+The journey exercises source/image publication, saved checks, decisions, clarification, approval, actual HTML download, history and invalidation. It allocates a fresh demo workspace and uses real Supabase services. AI-off mode makes no provider calls.
+
+To target the deployed app, set `PHASE6_BASE_URL=https://brand-review-desk.vercel.app` instead. A local server is unnecessary for that run. Check available demo capacity before repeated public runs; used sessions are not automatically recycled.
+
+### Live AI evaluation
+
+`npm run pilot` runs the fixed development cases and makes real provider requests. Primary/fallback smoke modes also call Gemini. Check both provider quota and application headroom before running them; diagnostic scripts must not be used to bypass the application's allowance.
+
+Record failures and unavailable cases separately from successful responses. Exact-rule recovery on an AI failure is not an AI pass. Detailed prior runs and limitations are available under [verification notes](docs/PHASE6_VERIFICATION.md) and [evidence](docs/evidence).
+
+## Deployment
+
+1. Connect the repository to Vercel with Next.js, Node 22 and the repository root as Root Directory. Configure the intended production branch.
+2. Add your environment variables to Production. Keep the service-role key, Gemini key and demo-account manifest secret. Git does not copy `.env.local` to the host.
+3. Set `NEXT_PUBLIC_SITE_URL` to the actual HTTPS deployment origin. Enable demo entry only after setup is complete. Preserve the manifest, database usage and configured allowances.
+4. Deploy the reviewed commit. Environment changes require a new deployment. Check the source revision and build logs.
+5. Verify the public walkthrough while signed out, including the actual download and approval invalidation. A Ready deployment is only a successful build.
+
+`/api/health` checks the application shell, not database, storage or AI readiness. See [Vercel Git deployments](https://vercel.com/docs/git) and [environment-variable management](https://vercel.com/docs/environment-variables/managing-environment-variables).
+
+## AI behavior and privacy
+
+Model identifiers are configuration values in `.env.local` or the hosting environment. If primary and fallback identifiers match, there is no independent fallback. Responses must pass structural, quoted-span and source-ID validation before storage. The request timeout is 25 seconds; there is no automatic retry or model switch.
+
+Per-session and global allowance checks happen before a product AI request. Failed provider attempts and explicit retries count after reservation. A global limit of zero disables product AI calls. Limits are cumulative application controls, not provider billing caps or automatic daily resets.
+
+The text-only Gemini request receives saved copy and approved source entries. Original images remain in private Storage. Free-tier inputs and responses may be used by Google to improve its products, so the public demo accepts fictional data only. See [Gemini's data-use terms](https://ai.google.dev/gemini-api/terms). Handling confidential customer material requires a separate provider and retention review.
+
+## Known limitations
+
+- **Demo role transitions can stall.** A Manager-to-Creator switch has remained pending long enough to interrupt public testing. Reliable recovery and a complete deployed pass remain unverified.
+- **AI availability is not guaranteed.** Quota exhaustion and provider 503 errors have interrupted evaluation. The existing pilot does not establish general model accuracy.
+- **Visual checks are partly manual.** No image OCR, automatic logo recognition or whole-image accessibility assessment is implemented. Contrast applies to the selected colour pair.
+- **Input scope is bounded.** Pasted English copy up to 1,500 words, up to 30 source entries and one PNG/JPG up to 5,242,880 bytes, 4,096 pixels per side and 16 megapixels.
+- **Documents and publishing are unsupported.** PDF/DOCX parsing and automatic campaign publication are not implemented.
+- **Demo capacity is finite.** Used slots are not automatically recycled. Failed/abandoned uploads may remain unreferenced in private Storage; there is no background cleanup service.
+- **Verification is incomplete.** A real product-timeout check and unassisted usability evaluation remain open. Historical local checks are not a guarantee of hosted behavior.
+
+## Planned extensions
+
+- **Image text review:** extract readable English from a PNG/JPG, let the creator correct/confirm it and check the resulting claims against approved sources.
+- **Short PDF review:** preview and review private text PDFs with page references and bounded file/page/word limits.
+- **Confirmed guideline import:** propose source-backed rules from a document, with manager editing and explicit publication before they become authoritative.
+
+These are planned capabilities, not available features. DOCX import and publishing integrations are additional possibilities after the review workflow is validated.
+
+## Project structure
+
+```text
+src/app/                Pages and API route handlers
+src/components/         Workspace, review and upload interfaces
+src/lib/                Schemas, pure checks and shared helpers
+src/server/             Access control, data access and integrations
+supabase/migrations/    Tables, policies and transactional functions
+scripts/                Setup and service/permission verification
+tests/unit/             Rule, input and image/export tests
+tests/browser/          Playwright workflow verification
+docs/                   Setup, testing and design notes
+```
+
+OpenAI Codex assisted development and generated substantial application code, SQL migrations, tests, scripts and documentation. Gemini is the optional AI integration within the product. The implementation uses standard framework scaffolding, the listed libraries and fictional development fixtures. Preserve dependency licences and review generated code alongside other contributions.
