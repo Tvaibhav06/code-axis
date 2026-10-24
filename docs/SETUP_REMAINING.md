@@ -1,12 +1,12 @@
 # Setup and release checklist
 
-**Current project status, 24 October 2026:** migrations 001–007, server settings, demo/content seeds and local demo entry are complete. Real Supabase smoke/permission checks passed. Local manual and later AI-assisted browser journeys passed, including private images, approval, HTML download and edit invalidation. The initial ten-case AI pilot did not meet its gate. Shared-allowance recovery passed; session-only exhaustion and a product timeout remain unverified. See [measured evidence](PHASE6_VERIFICATION.md). Deployment remains deferred by the owner.
+**Current project status, 24 October 2026:** migrations 001–007, server settings, demo/content seeds and local demo entry are complete. Real Supabase smoke/permission checks passed. Local manual and later AI-assisted browser journeys passed, including private images, approval, HTML download and edit invalidation. The initial ten-case AI pilot did not meet its gate; an authorised rerun stopped on provider quota after five cases. Shared-allowance recovery and a controlled session-only database check passed; a product timeout remains unverified. See [measured evidence](PHASE6_VERIFICATION.md). Deployment remains deferred by the owner.
 
-**Do not repeat the setup below for the existing project.** It is retained as a bootstrap guide for a fresh installation. Never paste keys, generated account credentials or `.env.local` into chat or Git. The current cumulative local test cap of 12 is used up; a reviewed additional allowance is needed before another real-AI evaluation. No billing or automatic counter resets are enabled.
+**Do not repeat the setup below for the existing project.** It is retained as a bootstrap guide for a fresh installation. Never paste keys, generated account credentials or `.env.local` into chat or Git. The owner authorised a cumulative local test cap of 22; 18 application reservations are consumed, including one database-only diagnostic. Four app units remain, but the provider reported quota exhaustion. No billing or automatic counter resets are enabled.
 
 ## Current remaining work
 
-1. Agree an additional free-tier test allowance and obtain a conclusive ten-case pilot, preserving the first run. Do not use direct smoke calls to bypass the app budget.
+1. Verify actual Gemini quota/availability before any further provider request, then review app headroom for a conclusive ten-case pilot. Preserve both earlier reports. Do not use direct smoke calls to bypass the app budget.
 2. Finish the remaining Phase 6 failure checks and record any solo/unassisted usability limits.
 3. Once local verification is complete and deployment resumes, copy settings privately to Vercel, deploy the chosen source revision and verify the public project/repository access and fresh judge journey. No push or deployment has been performed for the later local Phase 6 work.
 4. Prepare and inspect the seven required Round 2 submission items, with truthful feature status, original-plan changes, three substantial Round 3 improvements and AI/code attribution.

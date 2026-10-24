@@ -15,6 +15,8 @@
 | Real-AI browser journey, later separate run | Passed | Initial exact check, revise, one real AI check on the revised version, separate reviewer, HTML download and invalidation; not two live AI checks |
 | Maximum-size browser upload | Passed in later journey | Exactly 5,242,880 bytes uploaded directly to private storage and decoded/registered by the server; one extra byte rejected by the UI |
 | Shared-allowance exhaustion and manual recovery | Passed in separate journey | Fresh session had unused attempts; AI request was rejected without consuming a session attempt, exact findings survived, AI-off revision/approval/download/invalidation completed |
+| Session-only database guard | Passed in controlled diagnostic | One verification-only lease with a temporary one-attempt limit accepted one reservation and rejected three more; counter remained one; normal five-attempt setting restored; no Gemini call |
+| Authorised pilot rerun | Stopped on provider quota at P05 | P01–P04 returned 503 with exact findings retained; P05 returned quota failure; P06–P10 unrun; no completed AI cases |
 | Lint / TypeScript | Passed | New browser test, pilot runner and expired-source assertion |
 | Production build | Owner's preceding check passed | No product runtime source changed in this phase; a new Phase 6 production build was not claimed |
 
@@ -44,7 +46,7 @@ The ten frozen development cases came from the build plan. Every case made exact
 - **0 false alarms among 2 clean cases with completed AI.** The other 2 clean cases are unavailable, not successful clean results. The original console's `/4` denominator must not be quoted as four completed clean evaluations.
 - The planned target, at least 5/6 planted issues and no more than 1/4 clean false alarms with conclusive results, **was not met**. This run does not establish model accuracy on the unavailable cases.
 
-Across the first pilot and failed real-AI browser attempt, 11 actual product AI calls were made: 4 complete and 7 HTTP 503. A later, separately reported browser run used the twelfth attempt and completed. **All 12 cumulative local test attempts are now used: 5 complete, 7 HTTP 503.** Per-session cap remained 5; no billing was enabled. No counter reset or cap increase was performed. Provider quotas remain project-specific; 12 is an application cap, not a guarantee of Google's quota. A later successful request does not turn the first pilot into a pass.
+Across the first pilot and failed real-AI browser attempt, 11 actual product AI calls were made: 4 complete and 7 HTTP 503. A later, separately reported browser run used the twelfth attempt and completed. **At that checkpoint, all 12 cumulative test attempts were used: 5 complete, 7 HTTP 503.** Per-session cap remained 5; no billing was enabled. No counter reset or automatic cap increase was performed. Provider quotas remain project-specific; an application cap is not a guarantee of Google's quota. A later successful request does not turn the first pilot into a pass. The subsequently authorised allowance and partial rerun are recorded separately below.
 
 ## Later one-call browser run
 
@@ -57,11 +59,29 @@ Started 24 October 2026 at 05:14:37 UTC (10:44:37 Asia/Kolkata). Raw summary: [o
 
 ## Shared-allowance recovery run
 
-Raw summary: [allowance recovery journey](evidence/journey-2026-10-24-allowance-recovery.json). Passed in 1.1 minutes. A fresh session with unused per-session allowance requested AI after the cumulative 12-attempt cap was reached. The stored result was `failed` with `session_or_global_allowance_unavailable`; the session's remaining count was unchanged. Exact conflict findings and the visible recovery message remained. The creator revised the copy and ran AI-off checks; the independent reviewer completed the manual checklist, approved, downloaded the HTML and verified edit invalidation. This was a guard rejection followed by manual recovery, **not another provider call or an AI pass**. Session-only exhaustion is still a separate unverified case.
+Raw summary: [allowance recovery journey](evidence/journey-2026-10-24-allowance-recovery.json). Passed in 1.1 minutes. A fresh session with unused per-session allowance requested AI after the cumulative 12-attempt cap was reached. The stored result was `failed` with `session_or_global_allowance_unavailable`; the session's remaining count was unchanged. Exact conflict findings and the visible recovery message remained. The creator revised the copy and ran AI-off checks; the independent reviewer completed the manual checklist, approved, downloaded the HTML and verified edit invalidation. This was a guard rejection followed by manual recovery, **not another provider call or an AI pass**. Session-only exhaustion was checked later through the controlled diagnostic below.
 
 After both later runs, the capacity RPC reported **15 unused judge slots and 9 claimed**. No used workspace was recycled. This supersedes the older 17/7 snapshot below.
 
-The reload assertion was then strengthened to wait for saved checks, approval and issue counts to finish loading, rather than accepting the initial placeholder. The same shared-allowance/manual journey passed again in 1.7 minutes, without a provider call. [Loaded-state run](evidence/journey-2026-10-24-allowance-recovery-loaded.json) and [visually inspected loaded approval history](evidence/manual-approval-invalidated-loaded.png) show the edited version with a historical approval and no current approval. The latest capacity snapshot is **14 unused judge slots and 10 claimed**. Lint and TypeScript passed after the final test change. Production runtime code was unchanged.
+The reload assertion was then strengthened to wait for saved checks, approval and issue counts to finish loading, rather than accepting the initial placeholder. The same shared-allowance/manual journey passed again in 1.7 minutes, without a provider call. [Loaded-state run](evidence/journey-2026-10-24-allowance-recovery-loaded.json) and [visually inspected loaded approval history](evidence/manual-approval-invalidated-loaded.png) show the edited version with a historical approval and no current approval. At that checkpoint capacity was **14 unused judge slots and 10 claimed**. Lint and TypeScript passed after the final test change. Production runtime code was unchanged.
+
+## Authorised pilot rerun and quota stop
+
+The owner explicitly authorised ten more test attempts. The cumulative app cap was changed from 12 to **22**, preserving consumed counters, with the normal per-session setting still **5**. Billing stayed free. The same ten frozen cases, model and prompt were used, with at least 65 seconds between requests and no automatic retries or model changes.
+
+Raw report: [partial second pilot](evidence/pilot-2026-10-24T05-27-04-838Z.json), started 24 October at 05:27:04 UTC (10:57:04 Asia/Kolkata).
+
+| Cases | Result |
+|---|---|
+| P01–P04 | All returned HTTP 503; the four exact-rule conflicts remained correctly identified |
+| P05 | Provider quota error; no completed AI result |
+| P06–P10 | Unrun: the runner stopped immediately on quota failure |
+
+There were **0 completed AI responses among 5 attempted cases**. No clean case was evaluated, so no false-positive rate can be claimed. The pilot target remains unmet/inconclusive. The optional session-recovery probe in that process did not execute (`sessionProbe: null`); it is not credited as a pass. The first pilot report was not modified.
+
+After the quota stop, a manual service-RPC diagnostic used **one verification-only lease**, temporarily configured with a one-attempt limit. One reservation succeeded; three subsequent reservations returned the specific session-exhaustion error while shared headroom remained. The resolved lease counter stayed at one. The normal five-attempt setting was restored in a `finally` step, keeping the cumulative cap at 22. [Sanitised diagnostic record](evidence/session-limit-2026-10-24.json). This proves the parameterised database guard under a controlled one-attempt limit; it is not a five-call browser test. It made **zero provider calls**, but deliberately consumed one application reservation. Manual UI recovery was demonstrated in the separate shared-allowance journey above.
+
+Accounting for the recorded runs: **17 provider calls** across Phase 6 (5 complete, 11 HTTP 503, 1 quota error), plus **1 diagnostic-only reservation**. Thus **18/22 application reservations are accounted for**, leaving four app units absent other use. Remaining app units do not establish available Google quota. No further provider call was attempted after the quota error. The capacity RPC reported **13 unused judge slots and 11 claimed**; the diagnostic verification lease is separate and no judge workspace was recycled.
 
 ## Browser setup and evidence
 
@@ -112,7 +132,7 @@ Use a workspace-owned TEMP/TMP folder if the restricted Windows host cancels fil
 
 ## Remaining exit gates
 
-1. Resolve/reassess real-provider availability and review the remaining free-tier quota before any rerun. Keep original results and report a rerun separately.
+1. Wait until actual provider quota/availability is verified before another run; review the remaining app allowance separately. Keep original results and report a rerun separately. No automatic retry or scheduled wake-up has been set.
 2. Complete a conclusive ten-case pilot. The later one-call live-AI journey passed; this does not establish reliable provider availability or close the failed pilot gate.
-3. Independently exercise session-only exhaustion and a real product timeout. Shared-allowance exhaustion/recovery and the maximum browser-to-storage upload boundary now passed.
+3. Exercise a real product timeout. Shared-allowance exhaustion/recovery, the controlled session-only database guard and the maximum browser-to-storage upload boundary now passed.
 4. Any unassisted user trial and final production/deployment checks remain unverified. Phase 7 may draft truthful material, but cannot call the whole product submission-ready yet.
