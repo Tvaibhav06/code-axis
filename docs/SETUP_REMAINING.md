@@ -1,6 +1,15 @@
-# Setup still needed before the interactive demo can open
+# Setup and release checklist
 
-Code for Phases 1–5 is prepared. This checklist is the remaining service work, not a claim that the project is submission-ready. Never paste keys, generated account credentials or `.env.local` into chat or Git.
+**Current project status, 24 October 2026:** migrations 001–007, server settings, demo/content seeds and local demo entry are complete. Real Supabase smoke/permission checks passed. Local manual and later AI-assisted browser journeys passed, including private images, approval, HTML download and edit invalidation. The initial ten-case AI pilot did not meet its gate. Shared-allowance recovery passed; session-only exhaustion and a product timeout remain unverified. See [measured evidence](PHASE6_VERIFICATION.md). Deployment remains deferred by the owner.
+
+**Do not repeat the setup below for the existing project.** It is retained as a bootstrap guide for a fresh installation. Never paste keys, generated account credentials or `.env.local` into chat or Git. The current cumulative local test cap of 12 is used up; a reviewed additional allowance is needed before another real-AI evaluation. No billing or automatic counter resets are enabled.
+
+## Current remaining work
+
+1. Agree an additional free-tier test allowance and obtain a conclusive ten-case pilot, preserving the first run. Do not use direct smoke calls to bypass the app budget.
+2. Finish the remaining Phase 6 failure checks and record any solo/unassisted usability limits.
+3. Once local verification is complete and deployment resumes, copy settings privately to Vercel, deploy the chosen source revision and verify the public project/repository access and fresh judge journey. No push or deployment has been performed for the later local Phase 6 work.
+4. Prepare and inspect the seven required Round 2 submission items, with truthful feature status, original-plan changes, three substantial Round 3 improvements and AI/code attribution.
 
 ## 1. Apply the database migrations
 
@@ -16,7 +25,7 @@ In the supplied Supabase project's SQL editor, apply these files **once, in orde
 
 If migrations 001–006 are already applied, run **only 007** next. It retains the existing functions, permissions and row locks and changes expected stale-version errors to an explicit HTTP 409 response. Do not rerun the earlier schema-creation files.
 
-They are all in `supabase/migrations`. A SQL syntax check has passed locally; actual application, RLS, approval transactions and private storage still require verification in Supabase.
+They are all in `supabase/migrations`. For the current project these migrations are already applied and the real permission suite passed. A new installation must apply and verify its own schema.
 
 ## 2. Add the server-only key locally and seed the accounts
 
@@ -66,6 +75,6 @@ After local service and permission checks pass, enable `DEMO_ACCESS_ENABLED=true
 
 Remove the diagnostic token and production smoke-user password after setup verification. Retain only the server settings required by the product. Do not share the generated manifest publicly.
 
-## After setup
+## After a fresh setup
 
-Phase 6 still needs the one Playwright journey and the ten-draft pilot with measured results. Phase 7 still needs the seven-item submission pack and updated PDF. No runtime gate, evaluation result or deployment is marked complete merely because prepared code is committed or pushed.
+Repeat the local checks against the new installation and consult the measured report for the existing project's actual results. Phase 7 still needs the seven-item submission pack and updated PDF. No runtime gate, evaluation result or deployment is marked complete merely because code is committed or pushed.

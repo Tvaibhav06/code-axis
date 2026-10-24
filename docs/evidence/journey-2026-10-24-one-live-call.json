@@ -1,0 +1,20 @@
+{
+  "startedAt": "2026-10-24T05:14:37.510Z",
+  "mode": "one-live-call",
+  "checks": [
+    {
+      "ai": false,
+      "status": "manual",
+      "errorCode": null,
+      "model": null
+    },
+    {
+      "ai": true,
+      "status": "complete",
+      "errorCode": null,
+      "model": "gemini-3.6-flash"
+    }
+  ],
+  "maximumImageBytes": 5242880,
+  "workflowComplete": true
+}

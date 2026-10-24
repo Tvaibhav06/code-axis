@@ -1,6 +1,6 @@
 # Phase 6 local verification
 
-24 October 2026, Asia/Kolkata. Status: **partial; the live-AI reliability gate failed**. No deployment was made or changed.
+24 October 2026, Asia/Kolkata. Status: **partial; a later live-AI journey passed, but the pilot gate remains open**. No deployment was made or changed.
 
 ## Measured results
 
@@ -11,7 +11,10 @@
 | Chromium text/manual journey | Passed | Start demo, saved-copy checks, revision, separate reviewer, manual checklist, actual HTML download, edit and rejected stale export after reload |
 | Chromium image/manual journey | Passed | Manager uploads/publishes logo and palette; creator uploads image/alt text/checklist; review, approval, actual download and invalidation |
 | Narrow viewport and keyboard entry | Passed within journey | 390 px viewport without horizontal page overflow; skip link receives keyboard focus; not a full accessibility certification |
-| Real-AI browser journey | Failed at first AI check | Actual saved run recorded provider_http_503; no automatic retry or model switch; not counted as a manual journey pass |
+| Real-AI browser journey, first attempt | Failed at first AI check | Actual saved run recorded provider_http_503; retained as a failure |
+| Real-AI browser journey, later separate run | Passed | Initial exact check, revise, one real AI check on the revised version, separate reviewer, HTML download and invalidation; not two live AI checks |
+| Maximum-size browser upload | Passed in later journey | Exactly 5,242,880 bytes uploaded directly to private storage and decoded/registered by the server; one extra byte rejected by the UI |
+| Shared-allowance exhaustion and manual recovery | Passed in separate journey | Fresh session had unused attempts; AI request was rejected without consuming a session attempt, exact findings survived, AI-off revision/approval/download/invalidation completed |
 | Lint / TypeScript | Passed | New browser test, pilot runner and expired-source assertion |
 | Production build | Owner's preceding check passed | No product runtime source changed in this phase; a new Phase 6 production build was not claimed |
 
@@ -41,7 +44,24 @@ The ten frozen development cases came from the build plan. Every case made exact
 - **0 false alarms among 2 clean cases with completed AI.** The other 2 clean cases are unavailable, not successful clean results. The original console's `/4` denominator must not be quoted as four completed clean evaluations.
 - The planned target, at least 5/6 planted issues and no more than 1/4 clean false alarms with conclusive results, **was not met**. This run does not establish model accuracy on the unavailable cases.
 
-Across the pilot and failed real-AI browser attempt, 11 actual product AI calls were made: 4 complete and 7 HTTP 503. The app's cumulative global allowance was set to 12 and per-session cap remained 5; no billing was enabled. One unit of allowance remains from this run, assuming no subsequent use. No automatic reset or increase was performed. Provider quotas remain project-specific; 12 is an application cap, not a guarantee of Google's quota.
+Across the first pilot and failed real-AI browser attempt, 11 actual product AI calls were made: 4 complete and 7 HTTP 503. A later, separately reported browser run used the twelfth attempt and completed. **All 12 cumulative local test attempts are now used: 5 complete, 7 HTTP 503.** Per-session cap remained 5; no billing was enabled. No counter reset or cap increase was performed. Provider quotas remain project-specific; 12 is an application cap, not a guarantee of Google's quota. A later successful request does not turn the first pilot into a pass.
+
+## Later one-call browser run
+
+Started 24 October 2026 at 05:14:37 UTC (10:44:37 Asia/Kolkata). Raw summary: [one-call journey](evidence/journey-2026-10-24-one-live-call.json). Chromium passed in 2.2 minutes, with retries disabled.
+
+- The initial bad copy received exact checks with AI off. After revision to the approved 14-day wording, **one** real `gemini-3.6-flash` call completed and was saved. This is an end-to-end AI-assisted journey, not evidence of two successful AI checks or ten-case accuracy.
+- A real manager published a validated logo/palette; the creator uploaded the campaign graphic, alt text and image checklist. The maximum-size fixture was a decodable PNG with inert trailing padding to exactly 5,242,880 bytes, matching the existing unit boundary approach. It is a file-size boundary fixture, not a large-dimension image benchmark. The server reported the exact byte count after downloading and decoding it from private storage. A 5,242,881-byte fixture was rejected before upload.
+- A distinct reviewer approved the saved AI-assisted version. The actual HTML download contained the saved copy and no script element. At 390 px the page had no horizontal overflow. Editing the copy removed current approval; stale export returned HTTP 409 and stayed invalid after reload.
+- Screenshots: [AI-assisted approval at 390 px](evidence/live-ai-review-mobile.png), [immediate reload capture](evidence/live-ai-approval-invalidated.png). The latter was captured while background review reads were still loading; use the later loaded-state evidence below for the post-reload UI assertion. These show a local development build, not a deployment.
+
+## Shared-allowance recovery run
+
+Raw summary: [allowance recovery journey](evidence/journey-2026-10-24-allowance-recovery.json). Passed in 1.1 minutes. A fresh session with unused per-session allowance requested AI after the cumulative 12-attempt cap was reached. The stored result was `failed` with `session_or_global_allowance_unavailable`; the session's remaining count was unchanged. Exact conflict findings and the visible recovery message remained. The creator revised the copy and ran AI-off checks; the independent reviewer completed the manual checklist, approved, downloaded the HTML and verified edit invalidation. This was a guard rejection followed by manual recovery, **not another provider call or an AI pass**. Session-only exhaustion is still a separate unverified case.
+
+After both later runs, the capacity RPC reported **15 unused judge slots and 9 claimed**. No used workspace was recycled. This supersedes the older 17/7 snapshot below.
+
+The reload assertion was then strengthened to wait for saved checks, approval and issue counts to finish loading, rather than accepting the initial placeholder. The same shared-allowance/manual journey passed again in 1.7 minutes, without a provider call. [Loaded-state run](evidence/journey-2026-10-24-allowance-recovery-loaded.json) and [visually inspected loaded approval history](evidence/manual-approval-invalidated-loaded.png) show the edited version with a historical approval and no current approval. The latest capacity snapshot is **14 unused judge slots and 10 claimed**. Lint and TypeScript passed after the final test change. Production runtime code was unchanged.
 
 ## Browser setup and evidence
 
@@ -72,7 +92,19 @@ npm.cmd run test:browser
 $env:PHASE6_AI = 'true'
 npm.cmd run test:browser
 
-# Ten additional real calls; do not run against the remaining one-call allowance.
+# One-call variation: initial exact check, real AI on revised copy, then approval/export.
+$env:PHASE6_SINGLE_AI = 'true'
+$env:PHASE6_MAX_IMAGE = 'true'
+npm.cmd run test:browser
+
+# Only when the shared allowance is known to be exhausted; must not use live-AI mode.
+$env:PHASE6_AI = 'false'
+$env:PHASE6_MAX_IMAGE = 'false'
+$env:PHASE6_ALLOWANCE_EXHAUSTED = 'true'
+npm.cmd run test:browser
+
+# Ten additional real calls; requires a separately reviewed allowance.
+# In a new terminal: PHASE6_AI=true, PHASE6_ALLOWANCE_EXHAUSTED unset/false.
 npm.cmd run pilot
 ```
 
@@ -81,6 +113,6 @@ Use a workspace-owned TEMP/TMP folder if the restricted Windows host cancels fil
 ## Remaining exit gates
 
 1. Resolve/reassess real-provider availability and review the remaining free-tier quota before any rerun. Keep original results and report a rerun separately.
-2. Complete the real-AI journey and a conclusive ten-case pilot. A working manual path does not close the AI gate.
-3. Independently exercise session/global exhaustion and recovery, and a real product timeout. Limits exist in SQL, but these failure paths have not all been demonstrated in Phase 6. Maximum-size decoding passed unit tests; a 5 MB browser-to-storage upload remains to be exercised.
+2. Complete a conclusive ten-case pilot. The later one-call live-AI journey passed; this does not establish reliable provider availability or close the failed pilot gate.
+3. Independently exercise session-only exhaustion and a real product timeout. Shared-allowance exhaustion/recovery and the maximum browser-to-storage upload boundary now passed.
 4. Any unassisted user trial and final production/deployment checks remain unverified. Phase 7 may draft truthful material, but cannot call the whole product submission-ready yet.

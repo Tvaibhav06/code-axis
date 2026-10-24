@@ -1,10 +1,20 @@
 import { test, expect } from "@playwright/test";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import sharp from "sharp";
+import { MAX_IMAGE_BYTES } from "../../src/lib/image-schema";
 test("saved copy → check → revise → independent approval → export → invalidate", async ({ page, context }, info) => {
   const realAi = process.env.PHASE6_AI === "true";
+  const singleAi = realAi && process.env.PHASE6_SINGLE_AI === "true";
   const includeImage = realAi || process.env.PHASE6_IMAGES === "true";
-  info.annotations.push({ type: "mode", description: realAi ? "real-provider journey" : "AI-off manual recovery; not a live-AI pass" });
+  const maximumImage = process.env.PHASE6_MAX_IMAGE === "true";
+  const exhaustedAllowance = process.env.PHASE6_ALLOWANCE_EXHAUSTED === "true";
+  if (exhaustedAllowance) expect(realAi, "Exhaustion probe requires manual journey mode to avoid provider calls.").toBe(false);
+  info.annotations.push({ type: "mode", description: singleAi ? "initial exact check, then one real AI check on revised copy; manual recovery if provider fails" : realAi ? "two real-provider checks" : "AI-off manual recovery; not a live-AI pass" });
+  const evidence: { startedAt: string; mode: string; checks: { ai: boolean; status: string; errorCode: string | null; model: string | null }[]; maximumImageBytes: number | null; workflowComplete: boolean } = {
+    startedAt: new Date().toISOString(), mode: singleAi ? "one-live-call" : realAi ? "two-live-calls" : "manual", checks: [], maximumImageBytes: null, workflowComplete: false,
+  };
+  const saveEvidence = () => writeFile(info.outputPath("journey-evidence.json"), JSON.stringify(evidence, null, 2) + "\n");
+  let currentAiComplete = false;
   let lastAi = Number(process.env.PHASE6_LAST_AI_AT_MS || 0);
   await page.goto("/");
   await page.keyboard.press("Tab");
@@ -25,11 +35,11 @@ test("saved copy → check → revise → independent approval → export → in
     await page.getByLabel("Demo role", { exact: true }).selectOption("creator");
     await expect(page.getByLabel("English campaign text")).toBeEditable();
   }
-  const check = async () => {
+  const check = async (useAi: boolean, expectedStatus = useAi ? "complete" : "manual") => {
     await expect(page.getByRole("button", { name: "Run checks", exact: true })).toBeVisible();
     await expect(page.getByLabel("Include a real AI check")).toBeEnabled();
-    await page.getByLabel("Include a real AI check").setChecked(realAi);
-    if (realAi) {
+    await page.getByLabel("Include a real AI check").setChecked(useAi);
+    if (useAi) {
       await page.getByLabel(/I am using fictional data/).check();
       const remaining = 65_000 - (Date.now() - lastAi);
       if (remaining > 0) { console.log("Waiting for the planned free-tier call spacing."); await new Promise((resolve) => setTimeout(resolve, remaining)); }
@@ -38,18 +48,50 @@ test("saved copy → check → revise → independent approval → export → in
     const result = page.waitForResponse((r) => r.url().endsWith("/api/review/check") && r.request().method() === "POST");
     await page.getByRole("button", { name: "Run checks", exact: true }).click();
     const response = await result; expect(response.ok()).toBe(true);
-    const data = await response.json(); expect(data.result.status).toBe(realAi ? "complete" : "manual");
+    const data = await response.json();
+    const state = await (await context.request.get("/api/desk/state")).json();
+    const history = await (await context.request.get(`/api/review/history?campaign=${state.campaigns[0].id}`)).json();
+    const run = history.runs.find((r: { id: string }) => r.id === data.result.runId);
+    expect(run).toBeTruthy();
+    evidence.checks.push({ ai: useAi, status: run.status, errorCode: run.error_code, model: run.model });
+    currentAiComplete = useAi && run.status === "complete";
+    await saveEvidence();
+    console.log(`Saved ${useAi ? "real AI" : "exact/manual"} result: ${run.status}; error=${run.error_code || "none"}.`);
+    if (!(singleAi && useAi)) expect(data.result.status).toBe(expectedStatus);
     await expect(page.getByRole("button", { name: "Run checks", exact: true })).toBeEnabled();
   };
-  await check();
+  await check(realAi && !singleAi);
   await expect(page.getByText("Source conflict", { exact: true }).first()).toBeVisible();
+  if (exhaustedAllowance) {
+    const before = await (await context.request.get("/api/demo/session")).json();
+    expect(before.aiAttemptsRemaining).toBeGreaterThan(0);
+    await check(true, "failed");
+    expect(evidence.checks.at(-1)?.errorCode).toBe("session_or_global_allowance_unavailable");
+    await expect(page.getByText(/The AI allowance is unavailable or exhausted/)).toBeVisible();
+    await expect(page.getByText("Source conflict", { exact: true }).first()).toBeVisible();
+    const after = await (await context.request.get("/api/demo/session")).json();
+    expect(after.aiAttemptsRemaining).toBe(before.aiAttemptsRemaining);
+    info.annotations.push({ type: "allowance", description: "Shared allowance rejected; session had unused attempts; exact results survived; manual journey continues." });
+  }
   const clean = "Try SampleCo free for 14 days.";
   await page.getByLabel("English campaign text").fill(clean);
   if (includeImage) {
     const graphic = await sharp(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300"><rect width="600" height="300" fill="white"/><rect x="30" y="30" width="120" height="80" fill="#245b47"/><text x="48" y="85" font-size="44" fill="white">SC</text><text x="30" y="200" font-size="30" fill="black">Try SampleCo free for 14 days.</text></svg>')).png().toBuffer();
+    // Boundary fixture: original decodable PNG followed by inert padding, as in the decoder unit test.
+    const upload = maximumImage ? Buffer.concat([graphic, Buffer.alloc(MAX_IMAGE_BYTES - graphic.length)]) : graphic;
+    if (maximumImage) {
+      await page.getByLabel("Optional campaign image").setInputFiles({ name: "too-large.png", mimeType: "image/png", buffer: Buffer.concat([upload, Buffer.from([0])]) });
+      await expect(page.getByRole("status").filter({ hasText: "Choose a PNG/JPG up to 5 MB." })).toBeVisible();
+    }
     const validated = page.waitForResponse((r) => r.url().endsWith("/api/assets/finalise"));
-    await page.getByLabel("Optional campaign image").setInputFiles({ name: "sampleco-campaign.png", mimeType: "image/png", buffer: graphic });
-    expect((await validated).ok()).toBe(true);
+    await page.getByLabel("Optional campaign image").setInputFiles({ name: "sampleco-campaign.png", mimeType: "image/png", buffer: upload });
+    const finalised = await validated;
+    expect(finalised.ok()).toBe(true);
+    if (maximumImage) {
+      expect((await finalised.json()).result.bytes).toBe(MAX_IMAGE_BYTES);
+      evidence.maximumImageBytes = upload.length;
+      await saveEvidence();
+    }
     await page.getByLabel("Alternative text (required for approval)").fill("SampleCo logo above an invitation to try SampleCo free for 14 days.");
     for (const label of ["Logo matches the approved asset", "Logo spacing follows the published guidance", "All image text is readable", "Colours follow the approved palette"]) await page.getByLabel(label, { exact: true }).check();
   }
@@ -57,14 +99,14 @@ test("saved copy → check → revise → independent approval → export → in
   await page.getByRole("button", { name: /^Save version/ }).click();
   expect((await saved).ok()).toBe(true);
   await expect(page.getByText("No current check. Run checks again after changing copy or sources.")).toBeVisible();
-  await check();
+  await check(realAi);
   await page.getByLabel("Comment or reason").fill("Saved copy and source checks are ready for independent review.");
   await page.getByRole("button", { name: "Submit saved version for review" }).click();
   await expect(page.getByText(/Version \d+ · submitted/)).toBeVisible();
   await page.getByLabel("Demo role", { exact: true }).selectOption("reviewer");
   await expect(page.getByLabel("Demo role", { exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Approve saved version", exact: true })).toBeVisible();
-  if (!realAi) {
+  if (!currentAiComplete) {
     await page.getByLabel("I checked all facts against current sources.").check();
     await page.getByLabel("I checked claims and their evidence.").check();
     await page.getByLabel("I checked tone and messaging manually.").check();
@@ -90,6 +132,14 @@ test("saved copy → check → revise → independent approval → export → in
   const campaign = state.campaigns[0];
   expect((await context.request.get(`/api/export/${campaign.id}`)).status()).toBe(409);
   await page.reload();
+  await expect(page.getByText("Loading saved checks…", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Loading approval status…", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Loading issue counts…", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Include a real AI check")).toBeEnabled();
   await expect(page.getByText("No current approval", { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath("approval-invalidated.png"), fullPage: true });
+  evidence.workflowComplete = true;
+  await saveEvidence();
+  // A provider failure may demonstrate manual recovery, but must still fail the live-AI gate.
+  if (realAi) expect(currentAiComplete, "The live provider must complete; manual recovery is separate evidence.").toBe(true);
 });
