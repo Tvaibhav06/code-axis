@@ -30,6 +30,12 @@ export const sourceEntriesSchema = z.array(sourceEntrySchema).min(1, "Add at lea
 export const publishSourcesSchema = z.strictObject({ expectedVersion: z.number().int().nonnegative(), entries: sourceEntriesSchema,
   logoPath: assetPathSchema.nullable().default(null), palette: z.array(hexSchema).max(6).default([]) });
 
+const documentFields = {
+  documentPath: assetPathSchema.nullable().default(null),
+  documentText: z.string().default(""),
+  documentPages: z.number().int().nonnegative().default(0),
+};
+
 export const saveCampaignSchema = z.strictObject({
   campaignId: z.uuid().nullable(), expectedVersion: z.number().int().nonnegative(),
   title: z.string().trim().min(1, "Give the campaign a title.").max(120),
@@ -38,6 +44,8 @@ export const saveCampaignSchema = z.strictObject({
   body: z.string().trim().min(1, "Enter campaign text.").max(120_000)
     .refine((body) => wordCount(body) <= 1500, "Keep campaign text within 1,500 words."),
   ...campaignAssetFields,
+  ...documentFields,
+  imageText: z.string().max(4000).default(""),
 });
 export type CampaignInput = z.infer<typeof saveCampaignSchema>;
 
@@ -46,6 +54,8 @@ export const campaignVersionSchema = z.object({
   title: z.string(), purpose: z.string(), audience: z.string(), body: z.string(), created_at: z.string(),
   image_path: assetPathSchema.nullable().default(null), alt_text: z.string().default(""),
   image_review: imageReviewSchema.default(emptyImageReview), foreground: hexSchema.default("#000000"), background: hexSchema.default("#ffffff"),
+  document_path: assetPathSchema.nullable().default(null), document_text: z.string().default(""), document_pages: z.number().int().nonnegative().default(0),
+  image_text: z.string().default(""),
 });
 export const campaignSchema = z.object({
   id: z.uuid(), creator_id: z.uuid(), current_version: z.number().int().positive(),

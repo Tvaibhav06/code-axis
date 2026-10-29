@@ -1,9 +1,7 @@
 # Local performance and error audit
 
 **Follow-up:** the runtime performance/loading fixes and new verification are recorded in [Performance fixes and workflow](PERFORMANCE_FIXES_AND_WORKFLOW.md). The measurements below describe the original state and are retained as baseline evidence.
-
 24 October 2026 · Brand Review Desk · source baseline `6dced31`
-
 The slowness is reproducible. Repeated remote requests and a sequence of screen refreshes are substantial contributors. Development mode adds overhead, but the existing production build is also slow. Gemini was disabled during this audit, so provider latency does not explain these measurements.
 
 The tested manual workflow functions. It needs performance and loading-state fixes before a smooth judge demonstration. This audit did not change application logic, enable billing, call Gemini, push code or deploy anything.

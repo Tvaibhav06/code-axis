@@ -9,6 +9,7 @@ import { AssetPreview, AssetUpload } from "./image-controls";
 import { contrastRatio, emptyImageReview } from "@/lib/image-schema";
 import { IssuesPanel } from "./issues-panel";
 import { HistoryArchive } from "./history-archive";
+import { ImageTextReview } from "./image-text-review";
 
 const kindLabels = { terminology: "Approved name", trial_days: "Trial days", monthly_price: "Monthly price (INR)",
   offer: "Offer/code", tone: "Tone guidance", evidence: "Evidence requirement" };
@@ -89,7 +90,9 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
   const [draft, setDraft] = useState<CampaignInput>({ campaignId: campaign?.id || null, expectedVersion: campaign?.current_version || 0,
     title: latest?.title || "", purpose: latest?.purpose || "", audience: latest?.audience || "", body: latest?.body || "",
     imagePath: latest?.image_path || null, altText: latest?.alt_text || "", imageReview: latest?.image_review || emptyImageReview,
-    foreground: latest?.foreground || "#000000", background: latest?.background || "#ffffff" });
+    foreground: latest?.foreground || "#000000", background: latest?.background || "#ffffff",
+    documentPath: latest?.document_path || null, documentText: latest?.document_text || "", documentPages: latest?.document_pages || 0,
+    imageText: latest?.image_text || "" });
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -112,6 +115,7 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
       <p id="word-count" className={wordCount(draft.body) > 1500 ? "form-error" : "help-text"}>{wordCount(draft.body)} / 1,500 words</p>
       <AssetUpload label="Optional campaign image" disabled={busy} onBusyChange={setUploading} onUploaded={(path) => setDraft((previous) => ({ ...previous, imagePath: path, imageReview: { ...emptyImageReview } }))} />
       {draft.imagePath && <><div className="image-comparison"><div><h3>Campaign image</h3><AssetPreview key={draft.imagePath} path={draft.imagePath} alt={draft.altText || "Campaign image awaiting alternative text"} /></div><div><h3>Approved logo and palette</h3><AssetPreview key={book?.logo_path} path={book?.logo_path || null} alt="Approved brand logo" /><p>{book?.palette.join(", ") || "Ask the manager to publish a logo and palette."}</p></div></div>
+        <ImageTextReview key={draft.imagePath} imagePath={draft.imagePath} onConfirmed={(text) => setDraft((prev) => ({ ...prev, imageText: text }))} />
         <label>Alternative text (required for approval)<textarea maxLength={500} value={draft.altText} onChange={(e) => setDraft({ ...draft, altText: e.target.value })} /></label>
         <fieldset><legend>Manual image review</legend>{(["logo", "spacing", "readability", "palette"] as const).map((key) => <label key={key} className="check-label"><input type="checkbox" checked={draft.imageReview[key]} onChange={(e) => setDraft({ ...draft, imageReview: { ...draft.imageReview, [key]: e.target.checked } })} />{({ logo: "Logo matches the approved asset", spacing: "Logo spacing follows the published guidance", readability: "All image text is readable", palette: "Colours follow the approved palette" })[key]}</label>)}</fieldset>
         <div className="form-grid"><label>Text colour<input type="color" value={draft.foreground} onChange={(e) => setDraft({ ...draft, foreground: e.target.value })} /></label><label>Background colour<input type="color" value={draft.background} onChange={(e) => setDraft({ ...draft, background: e.target.value })} /></label></div>

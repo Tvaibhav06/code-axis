@@ -3,7 +3,7 @@ import { deskStateSchema, publishSourcesSchema, saveCampaignSchema } from "@/lib
 import { DemoError, requireDemoContext } from "./demo";
 import { isVersionConflict } from "@/lib/conflicts";
 
-const campaignFields = "id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background)";
+const campaignFields = "id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background,document_path,document_text,document_pages)";
 export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>, options: { campaignId?: string; offset?: number } = {}) {
   const { client, lease } = context;
   const offset = options.offset || 0;
@@ -52,7 +52,8 @@ export async function saveCampaign(context: Awaited<ReturnType<typeof requireDem
   const result = await context.client.rpc("save_campaign_with_asset", { p_workspace: context.lease.workspace_id,
     p_campaign: data.campaignId, p_expected_version: data.expectedVersion,
     p_title: data.title, p_purpose: data.purpose, p_audience: data.audience, p_body: data.body,
-    p_image: data.imagePath, p_alt: data.altText, p_review: data.imageReview, p_foreground: data.foreground, p_background: data.background });
+    p_image: data.imagePath, p_alt: data.altText, p_review: data.imageReview, p_foreground: data.foreground, p_background: data.background,
+    p_document: data.documentPath, p_document_text: data.documentText, p_document_pages: data.documentPages });
   if (result.error) mutationError(result.error.code);
   return result.data;
 }

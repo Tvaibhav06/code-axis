@@ -1,9 +1,10 @@
 # DIZZY DEV Round 2 submission documentation
 
+**Current pack prepared 24 October 2026:** use the [five-page project PDF](submission/DIZZY_DEV_CodeAxis_Round2.pdf), [editable Word report](submission/DIZZY_DEV_CodeAxis_Round2.docx), [seven copy-ready submission fields](submission/ROUND2_SUBMISSION_FIELDS.md) and [final owner checklist](submission/ROUND2_OWNER_CHECKLIST.md). The public homepage now opens with Start demo, and GitHub main is confirmed at `ec75539`. The public end-to-end check, AI pilot and actual product-timeout checks remain open. The earlier draft below is retained as preparation history; its old deployment and test-count statements are superseded by the current pack.
+
 Prepared 24 October 2026. **Documentation draft, not a completed submission.** The implemented core has local evidence; the conclusive AI pilot, product-timeout check and final public deployment verification remain open. Preserve these qualifications until replaced by actual results. The current evidence baseline is local source revision `adee3e9`.
 
 ## Team fields
-
 - Hackathon: CodeAxis
 - Team name: DIZZY DEV
 - Team leader and sole member: Vaibhav Tandon

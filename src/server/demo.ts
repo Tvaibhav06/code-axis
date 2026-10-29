@@ -62,6 +62,16 @@ async function signIn(slot: ReturnType<typeof manifest>["slots"][number], role: 
   }
 }
 
+// A role switch is several sequential requests. Without a shared deadline a slow
+// provider or a stalled network can outlast the browser's own timeout and leave the
+// UI pinned to "Updating your sign-in…" with no way to recover.
+function withDeadline<T>(promise: PromiseLike<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new DemoError(503, message)), ms)),
+  ]);
+}
+
 export async function startDemo() {
   requireEnabled();
   const pool = manifest();
@@ -72,7 +82,7 @@ export async function startDemo() {
       const context = await readLease();
       // Preserve the selected identity on refresh. Reconnect as creator only if Auth expired.
       try { await requireDemoContext(); } catch (error) {
-        if (error instanceof DemoError && error.status === 401) await signIn(context.slot, "creator");
+        if (error instanceof DemoError && error.status === 401) await withDeadline(signIn(context.slot, "creator"), 15_000, "Reconnecting took too long. Refresh the page to retry.");
         else throw error;
       }
       return;
@@ -81,7 +91,7 @@ export async function startDemo() {
     }
   }
   const token = randomBytes(32).toString("base64url");
-  const result = await createDemoAdminClient().rpc("claim_demo_slot", { p_token_hash: digest(token), p_verification: false });
+  const result = await withDeadline(createDemoAdminClient().rpc("claim_demo_slot", { p_token_hash: digest(token), p_verification: false }), 15_000, "Demo access took too long. Please retry.");
   if (result.error) throw new DemoError(503, "Demo access is temporarily unavailable.");
   if (!result.data?.length) throw new DemoError(503, "All demo workspaces have been used. Please try again after the team adds capacity.");
   const lease = demoLeaseSchema.parse(result.data[0]);
@@ -92,12 +102,12 @@ export async function startDemo() {
     httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax",
     path: "/", expires: new Date(lease.expires_at),
   });
-  await signIn(slot, "creator");
+  await withDeadline(signIn(slot, "creator"), 15_000, "Sign-in took too long. Refresh the page to retry.");
 }
 
 export async function switchDemoRole(role: DemoRole) {
   const context = await requireDemoContext();
-  await signIn(context.slot, role);
+  await withDeadline(signIn(context.slot, role), 15_000, "The role switch took too long. Refresh the page and try again.");
 }
 
 export async function endDemo() {

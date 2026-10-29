@@ -14,19 +14,26 @@ export function publicSupabaseConfig() {
   return { url, key };
 }
 
+// A caller-supplied signal bounds a whole multi-step flow (a role switch touches
+// several requests) instead of leaving each request its own independent ten seconds.
+function boundSignal(signal?: AbortSignal) {
+  const perRequest = AbortSignal.timeout(10_000);
+  return signal ? AbortSignal.any([signal, perRequest]) : perRequest;
+}
+
 // Trusted allocation, check-result and validated-asset recording only, after lease/role checks.
 // Ordinary product reads and human edits/approval use the user's RLS-bound client.
-export function createDemoAdminClient() {
+export function createDemoAdminClient(signal?: AbortSignal) {
   const { url } = publicSupabaseConfig();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error("Demo allocation is not configured.");
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
-    global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10_000) }) },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: boundSignal(signal) }) },
   });
 }
 
-export async function createUserClient() {
+export async function createUserClient(signal?: AbortSignal) {
   const { url, key } = publicSupabaseConfig();
   const store = await cookies();
   return createServerClient(url, key, {
@@ -40,6 +47,6 @@ export async function createUserClient() {
         catch { /* Read-only Server Component; proxy handles renewal. */ }
       },
     },
-    global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10_000) }) },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: boundSignal(signal) }) },
   });
 }

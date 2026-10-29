@@ -74,7 +74,10 @@ export async function checkCampaign(context: Context, input: unknown) {
   const book = state.rulebooks[0];
   if (!book) throw new DemoError(400, "Publish approved sources first.");
   if (request.ai && !request.consent) throw new DemoError(400, "Confirm fictional-data consent or switch AI off.");
-  const exact = exactChecks(version.body, book.entries);
+  // Commitment 1: confirmed image text is joined to the copy before checking.
+  // A finding quote must appear in the combined approved text to be recorded.
+  const checkedBody = version.image_text ? `${version.body}\n${version.image_text}` : version.body;
+  const exact = exactChecks(checkedBody, book.entries);
   if (exact.findings.length > 138) throw new DemoError(400, "This copy produces too many exact issues for one review. Correct the repeated terminology/fact conflicts or split the campaign before re-checking.");
   let findings = exact.findings;
   let status = "manual";
@@ -86,7 +89,7 @@ export async function checkCampaign(context: Context, input: unknown) {
       if (!model || !process.env.GEMINI_API_KEY || process.env.AI_CHECKS_ENABLED === "false") throw new AiFailure("ai_not_configured");
       const allowance = await createDemoAdminClient().rpc("reserve_demo_ai_attempt", { p_token_hash: context.tokenHash });
       if (allowance.error) throw new AiFailure("session_or_global_allowance_unavailable");
-      const ai = await reviewWithGemini(version.body, book.entries, model);
+      const ai = await reviewWithGemini(checkedBody, book.entries, model);
       findings = [...findings, ...ai.filter((f) => !findings.some((e) => e.ruleId === f.ruleId && e.quote === f.quote && e.category === f.category))];
       status = "complete";
     } catch (error) { status = "failed"; errorCode = error instanceof AiFailure ? error.message : "provider_unavailable"; }
@@ -112,5 +115,7 @@ export async function applySuggestion(context: Context, input: unknown) {
   if (!finding?.suggestion) throw new DemoError(409, "This suggestion is no longer current.");
   return saveCampaign(context, { campaignId: campaign.id, expectedVersion: campaign.current_version, title: version.title,
     purpose: version.purpose, audience: version.audience, body: applyLiteralSuggestion(version.body, finding.quote, finding.suggestion),
-    imagePath: version.image_path, altText: version.alt_text, imageReview: version.image_review, foreground: version.foreground, background: version.background });
+    imagePath: version.image_path, altText: version.alt_text, imageReview: version.image_review, foreground: version.foreground, background: version.background,
+    documentPath: version.document_path, documentText: version.document_text, documentPages: version.document_pages,
+    imageText: version.image_text });
 }
