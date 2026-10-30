@@ -2,8 +2,9 @@ import "server-only";
 import { deskStateSchema, publishSourcesSchema, saveCampaignSchema } from "@/lib/content-schema";
 import { DemoError, requireDemoContext } from "./demo";
 import { isVersionConflict } from "@/lib/conflicts";
+import { createDemoAdminClient } from "./supabase";
 
-const campaignFields = "id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background,document_path,document_text,document_pages)";
+const campaignFields = "id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background,document_path,document_text,document_pages,image_text)";
 export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>, options: { campaignId?: string; offset?: number } = {}) {
   const { client, lease } = context;
   const offset = options.offset || 0;
@@ -55,5 +56,11 @@ export async function saveCampaign(context: Awaited<ReturnType<typeof requireDem
     p_image: data.imagePath, p_alt: data.altText, p_review: data.imageReview, p_foreground: data.foreground, p_background: data.background,
     p_document: data.documentPath, p_document_text: data.documentText, p_document_pages: data.documentPages });
   if (result.error) mutationError(result.error.code);
+  if (data.imageText !== undefined) {
+    const versionId = result.data?.[0]?.version_id;
+    if (versionId) {
+      await createDemoAdminClient().from("campaign_versions").update({ image_text: data.imageText }).eq("id", versionId);
+    }
+  }
   return result.data;
 }

@@ -10,6 +10,7 @@ import { contrastRatio, emptyImageReview } from "@/lib/image-schema";
 import { IssuesPanel } from "./issues-panel";
 import { HistoryArchive } from "./history-archive";
 import { ImageTextReview } from "./image-text-review";
+import { DocumentUpload, DocumentPreview } from "./document-controls";
 
 const kindLabels = { terminology: "Approved name", trial_days: "Trial days", monthly_price: "Monthly price (INR)",
   offer: "Offer/code", tone: "Tone guidance", evidence: "Evidence requirement" };
@@ -61,6 +62,53 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
         <AssetPreview key={logoPath} path={logoPath} alt="Manager-approved brand logo" />
         {logoPath && <button type="button" className="text-button" onClick={() => setLogoPath(null)}>Remove logo from this draft</button>}
         <label>Approved palette (up to 6 comma-separated hex colours)<input value={palette} onChange={(e) => setPalette(e.target.value)} placeholder="#152238, #ffffff" /></label>
+        <DocumentUpload
+          label="Import guidelines from PDF (extracts rule candidates for manager review)"
+          disabled={busy}
+          onBusyChange={setUploading}
+          onUploaded={async ({ path }) => {
+            try {
+              setBusy(true);
+              const res = await fetch("/api/guidelines/extract-guidelines", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ path }),
+              });
+              const resData = await res.json().catch(() => null);
+              if (!res.ok || !resData?.ok) throw new Error(resData?.error || "Guidelines extraction failed.");
+              const candidates = (resData.result.candidates || []) as Array<{
+                kind: SourceEntry["kind"];
+                title: string;
+                value: string;
+                owner: string;
+                source: string;
+                validFrom: string | null;
+                validUntil: string | null;
+                aliases?: string[];
+              }>;
+              if (!candidates.length) {
+                setError("No guideline candidates could be extracted from this document.");
+                return;
+              }
+              const imported: SourceEntry[] = candidates.map((c) => ({
+                id: crypto.randomUUID(),
+                kind: c.kind,
+                title: c.title,
+                value: c.value,
+                owner: c.owner,
+                source: c.source,
+                validFrom: c.validFrom,
+                validUntil: c.validUntil,
+                aliases: c.aliases || [],
+              }));
+              setEntries((existing) => [...existing, ...imported].slice(0, 30));
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Guidelines extraction failed.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
         {entries.map((entry, index) => <fieldset className="source-form" key={entry.id}>
           <legend>Source {index + 1}</legend><div className="form-grid">
             <label>Type<select value={entry.kind} onChange={(event) => update(index, { kind: event.target.value as SourceEntry["kind"] })}>
@@ -113,6 +161,22 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
         <label>Audience<input required maxLength={300} value={draft.audience} onChange={(event) => setDraft({ ...draft, audience: event.target.value })} /></label>
         <label className="full-width">English campaign text<textarea required rows={9} value={draft.body} aria-describedby="word-count" onChange={(event) => setDraft({ ...draft, body: event.target.value })} /></label></div>
       <p id="word-count" className={wordCount(draft.body) > 1500 ? "form-error" : "help-text"}>{wordCount(draft.body)} / 1,500 words</p>
+      <DocumentUpload
+        label="Optional campaign brief / supporting document (PDF, up to 5 pages)"
+        disabled={busy}
+        onBusyChange={setUploading}
+        onUploaded={({ path, text, pages }) =>
+          setDraft((prev) => ({ ...prev, documentPath: path, documentText: text, documentPages: pages }))
+        }
+      />
+      {draft.documentPath && (
+        <DocumentPreview
+          path={draft.documentPath}
+          pages={draft.documentPages}
+          text={draft.documentText}
+          onRemove={() => setDraft((prev) => ({ ...prev, documentPath: null, documentText: "", documentPages: 0 }))}
+        />
+      )}
       <AssetUpload label="Optional campaign image" disabled={busy} onBusyChange={setUploading} onUploaded={(path) => setDraft((previous) => ({ ...previous, imagePath: path, imageReview: { ...emptyImageReview } }))} />
       {draft.imagePath && <><div className="image-comparison"><div><h3>Campaign image</h3><AssetPreview key={draft.imagePath} path={draft.imagePath} alt={draft.altText || "Campaign image awaiting alternative text"} /></div><div><h3>Approved logo and palette</h3><AssetPreview key={book?.logo_path} path={book?.logo_path || null} alt="Approved brand logo" /><p>{book?.palette.join(", ") || "Ask the manager to publish a logo and palette."}</p></div></div>
         <ImageTextReview key={draft.imagePath} imagePath={draft.imagePath} onConfirmed={(text) => setDraft((prev) => ({ ...prev, imageText: text }))} />
@@ -125,6 +189,13 @@ function CampaignEditor({ campaign, editable, reload, book }: { campaign?: Campa
       <p className="help-text">Save explicitly to create a new version. Switching campaigns, roles or leaving this page discards unsaved edits.</p>
     </fieldset></form> : latest ? <div><p><strong>Purpose:</strong> {latest.purpose}<br /><strong>Audience:</strong> {latest.audience}</p><pre className="copy-preview">{latest.body}</pre><p>Only this campaign&apos;s creator can save revisions.</p></div> : <p>No campaign is selected. The creator can add a draft.</p>}
     {error && <p className="form-error" role="alert">{error}</p>}
+    {!editable && latest?.document_path && (
+      <DocumentPreview
+        path={latest.document_path}
+        pages={latest.document_pages}
+        text={latest.document_text}
+      />
+    )}
     {!editable && latest?.image_path && <><div className="image-comparison"><div><h3>Saved campaign image</h3><AssetPreview path={latest.image_path} alt={latest.alt_text || "Alternative text missing"} /></div><div><h3>Approved logo</h3><AssetPreview path={book?.logo_path || null} alt="Approved brand logo" /><p>Palette: {book?.palette.join(", ") || "Not set"}</p></div></div><p>Alternative text: {latest.alt_text || "Missing"}</p><p>Saved manual checks: {Object.entries(latest.image_review).map(([k, v]) => `${k}: ${v ? "checked" : "missing"}`).join("; ")}</p><p>Selected pair: {latest.foreground} / {latest.background} · {contrastRatio(latest.foreground, latest.background).toFixed(2)}:1</p></>}
     {campaign && campaign.current_version > 1 && <HistoryArchive key={`${campaign.id}-${campaign.current_version}`} kind="versions" campaignId={campaign.id} />}
   </section>;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { assetPathSchema, campaignAssetFields, imageReviewSchema, emptyImageReview, hexSchema } from "./image-schema";
+import { documentPathSchema } from "./pdf-schema";
 
 export const sourceKinds = ["terminology", "trial_days", "monthly_price", "offer", "tone", "evidence"] as const;
 export const wordCount = (text: string) => text.trim() ? text.trim().split(/\s+/u).length : 0;
@@ -31,7 +32,7 @@ export const publishSourcesSchema = z.strictObject({ expectedVersion: z.number()
   logoPath: assetPathSchema.nullable().default(null), palette: z.array(hexSchema).max(6).default([]) });
 
 const documentFields = {
-  documentPath: assetPathSchema.nullable().default(null),
+  documentPath: documentPathSchema.nullable().default(null),
   documentText: z.string().default(""),
   documentPages: z.number().int().nonnegative().default(0),
 };
@@ -52,10 +53,14 @@ export type CampaignInput = z.infer<typeof saveCampaignSchema>;
 export const campaignVersionSchema = z.object({
   id: z.uuid(), campaign_id: z.uuid(), version: z.number().int().positive(),
   title: z.string(), purpose: z.string(), audience: z.string(), body: z.string(), created_at: z.string(),
-  image_path: assetPathSchema.nullable().default(null), alt_text: z.string().default(""),
-  image_review: imageReviewSchema.default(emptyImageReview), foreground: hexSchema.default("#000000"), background: hexSchema.default("#ffffff"),
-  document_path: assetPathSchema.nullable().default(null), document_text: z.string().default(""), document_pages: z.number().int().nonnegative().default(0),
-  image_text: z.string().default(""),
+  image_path: assetPathSchema.nullable().default(null), alt_text: z.string().nullish().transform((v) => v ?? "").default(""),
+  image_review: imageReviewSchema.nullish().transform((v) => v ?? emptyImageReview).default(emptyImageReview),
+  foreground: hexSchema.nullish().transform((v) => v ?? "#000000").default("#000000"),
+  background: hexSchema.nullish().transform((v) => v ?? "#ffffff").default("#ffffff"),
+  document_path: documentPathSchema.nullable().default(null),
+  document_text: z.string().nullish().transform((v) => v ?? "").default(""),
+  document_pages: z.number().int().nonnegative().nullish().transform((v) => v ?? 0).default(0),
+  image_text: z.string().nullish().transform((v) => v ?? "").default(""),
 });
 export const campaignSchema = z.object({
   id: z.uuid(), creator_id: z.uuid(), current_version: z.number().int().positive(),

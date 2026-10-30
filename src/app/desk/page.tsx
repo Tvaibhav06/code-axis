@@ -19,7 +19,10 @@ export default async function Desk({ searchParams }: { searchParams: Promise<{ c
   }
   let snapshot;
   try { snapshot = await getDeskSnapshot(context, query.campaign); }
-  catch { return <main className="wrap desk"><h1>Your workspace is not ready yet.</h1><p>The source library and campaign setup need to finish before editing is available.</p><Link href="/">Return to home</Link></main>; }
+  catch (error) {
+    console.error("Desk snapshot load failed:", error);
+    return <main className="wrap desk"><h1>Your workspace is not ready yet.</h1><p>The source library and campaign setup need to finish before editing is available.</p><Link href="/">Return to home</Link></main>;
+  }
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header wrap"><Link className="brand" href="/">Brand Review Desk</Link><span className="sample-label">Fictional demo</span></header>

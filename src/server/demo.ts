@@ -82,7 +82,7 @@ export async function startDemo() {
       const context = await readLease();
       // Preserve the selected identity on refresh. Reconnect as creator only if Auth expired.
       try { await requireDemoContext(); } catch (error) {
-        if (error instanceof DemoError && error.status === 401) await withDeadline(signIn(context.slot, "creator"), 15_000, "Reconnecting took too long. Refresh the page to retry.");
+        if (error instanceof DemoError && error.status === 401) await withDeadline(signIn(context.slot, "creator"), 30_000, "Reconnecting took too long. Refresh the page to retry.");
         else throw error;
       }
       return;
@@ -91,7 +91,7 @@ export async function startDemo() {
     }
   }
   const token = randomBytes(32).toString("base64url");
-  const result = await withDeadline(createDemoAdminClient().rpc("claim_demo_slot", { p_token_hash: digest(token), p_verification: false }), 15_000, "Demo access took too long. Please retry.");
+  const result = await withDeadline(createDemoAdminClient().rpc("claim_demo_slot", { p_token_hash: digest(token), p_verification: false }), 30_000, "Demo access took too long. Please retry.");
   if (result.error) throw new DemoError(503, "Demo access is temporarily unavailable.");
   if (!result.data?.length) throw new DemoError(503, "All demo workspaces have been used. Please try again after the team adds capacity.");
   const lease = demoLeaseSchema.parse(result.data[0]);
@@ -102,12 +102,12 @@ export async function startDemo() {
     httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax",
     path: "/", expires: new Date(lease.expires_at),
   });
-  await withDeadline(signIn(slot, "creator"), 15_000, "Sign-in took too long. Refresh the page to retry.");
+  await withDeadline(signIn(slot, "creator"), 30_000, "Sign-in took too long. Refresh the page to retry.");
 }
 
 export async function switchDemoRole(role: DemoRole) {
   const context = await requireDemoContext();
-  await withDeadline(signIn(context.slot, role), 15_000, "The role switch took too long. Refresh the page and try again.");
+  await withDeadline(signIn(context.slot, role), 30_000, "The role switch took too long. Refresh the page and try again.");
 }
 
 export async function endDemo() {
@@ -125,6 +125,7 @@ export function requireSameOrigin(request: Request) {
 }
 
 export function demoErrorResponse(error: unknown) {
+  console.error("demoErrorResponse:", error);
   return Response.json({ error: error instanceof DemoError ? error.message : "Demo access is temporarily unavailable." }, {
     status: error instanceof DemoError ? error.status : 503,
     headers: { "Cache-Control": "private, no-store" },

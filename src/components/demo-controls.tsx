@@ -15,16 +15,21 @@ async function demoRequest(action: string, role?: DemoRole) {
 
 export function StartDemo() {
   const router = useRouter();
-  const [busy, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  function start() {
+  async function start() {
+    if (busy) return;
+    setBusy(true);
     setError("");
-    startTransition(async () => {
-      try { await demoRequest("start"); router.push("/desk"); }
-      catch (error) { setError(error instanceof Error ? error.message : "Please retry in a moment."); }
-    });
+    try {
+      await demoRequest("start");
+      router.push("/desk");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Please retry in a moment.");
+      setBusy(false);
+    }
   }
-  return <div><button className="button" type="button" disabled={busy} onClick={start}>
+  return <div><button className="button" type="button" disabled={busy} onClick={() => void start()}>
     {busy ? "Opening your workspace…" : "Start demo"}</button>
     {error && <p className="form-error" role="alert">{error}</p>}</div>;
 }

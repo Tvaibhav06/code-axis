@@ -74,9 +74,9 @@ export async function checkCampaign(context: Context, input: unknown) {
   const book = state.rulebooks[0];
   if (!book) throw new DemoError(400, "Publish approved sources first.");
   if (request.ai && !request.consent) throw new DemoError(400, "Confirm fictional-data consent or switch AI off.");
-  // Commitment 1: confirmed image text is joined to the copy before checking.
+  // Commitment 1 & 2: confirmed image text and document text are joined to the copy before checking.
   // A finding quote must appear in the combined approved text to be recorded.
-  const checkedBody = version.image_text ? `${version.body}\n${version.image_text}` : version.body;
+  const checkedBody = [version.body, version.image_text, version.document_text].filter(Boolean).join("\n");
   const exact = exactChecks(checkedBody, book.entries);
   if (exact.findings.length > 138) throw new DemoError(400, "This copy produces too many exact issues for one review. Correct the repeated terminology/fact conflicts or split the campaign before re-checking.");
   let findings = exact.findings;

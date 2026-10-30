@@ -22,8 +22,10 @@ export const pdfIngestSchema = z.object({
 });
 export type PdfIngest = z.infer<typeof pdfIngestSchema>;
 
+export const documentPathSchema = z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.pdf$/, "Use a private PDF path.");
+
 export const pdfIngestRequestSchema = z.strictObject({
-  path: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.pdf$/, "Use a private PDF path."),
+  path: documentPathSchema,
   mime: z.literal("application/pdf"),
   bytes: z.number().int().positive().max(MAX_PDF_BYTES),
 });

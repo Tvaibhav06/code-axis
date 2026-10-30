@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
         values.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
       },
     },
-    global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(10_000) }) },
+    global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(30_000) }) },
   });
   // Renew cookies here; this does not authorise a request. Every protected page
   // and handler verifies the identity with getUser in requireDemoContext.

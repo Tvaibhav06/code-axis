@@ -17,7 +17,7 @@ export function publicSupabaseConfig() {
 // A caller-supplied signal bounds a whole multi-step flow (a role switch touches
 // several requests) instead of leaving each request its own independent ten seconds.
 function boundSignal(signal?: AbortSignal) {
-  const perRequest = AbortSignal.timeout(10_000);
+  const perRequest = AbortSignal.timeout(30_000);
   return signal ? AbortSignal.any([signal, perRequest]) : perRequest;
 }
 
