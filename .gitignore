@@ -13,3 +13,13 @@ playwright-report/
 test-results/
 *.log
 .DS_Store
+docs/submission/
+supabase/.temp/
+scripts/generate-round3-doc.py
+BUILD_LOG.md
+docs/ROUND*.md
+docs/LOCAL_*.md
+docs/PERFORMANCE_*.md
+docs/PHASE*.md
+docs/SETUP_*.md
+docs/evidence/
