@@ -3,6 +3,7 @@ import { deskStateSchema, publishSourcesSchema, saveCampaignSchema } from "@/lib
 import { DemoError, requireDemoContext } from "./demo";
 import { isVersionConflict } from "@/lib/conflicts";
 import { createDemoAdminClient } from "./supabase";
+import { verifySourceQuotes } from "@/lib/guideline-verification";
 
 const campaignFields = "id,creator_id,current_version,status,campaign_versions(id,campaign_id,version,title,purpose,audience,body,created_at,image_path,alt_text,image_review,foreground,background,document_path,document_text,document_pages,image_text)";
 export async function getDeskState(context: Awaited<ReturnType<typeof requireDemoContext>>, options: { campaignId?: string; offset?: number } = {}) {
@@ -39,6 +40,23 @@ export async function publishSources(context: Awaited<ReturnType<typeof requireD
   if (context.role !== "manager") throw new DemoError(403, "Only the manager can publish approved sources.");
   const parsed = publishSourcesSchema.safeParse(input);
   if (!parsed.success) throw new DemoError(400, parsed.error.issues[0]?.message || "Check the source fields.");
+
+  const docPaths = Array.from(new Set(parsed.data.entries.map((e) => e.sourceDoc).filter(Boolean) as string[]));
+  if (docPaths.length > 0) {
+    const admin = createDemoAdminClient();
+    const { data: docs } = await admin
+      .from("validated_documents")
+      .select("path, extracted_text")
+      .eq("workspace_id", context.lease.workspace_id)
+      .in("path", docPaths);
+    const docMap = new Map((docs || []).map((d) => [d.path, d.extracted_text as string]));
+    try {
+      verifySourceQuotes(parsed.data.entries, docMap);
+    } catch (err) {
+      throw new DemoError(400, err instanceof Error ? err.message : "Source quote verification failed.");
+    }
+  }
+
   const result = await context.client.rpc("publish_brand_sources", { p_workspace: context.lease.workspace_id,
     p_expected_version: parsed.data.expectedVersion, p_entries: parsed.data.entries, p_logo: parsed.data.logoPath, p_palette: parsed.data.palette });
   if (result.error) mutationError(result.error.code);

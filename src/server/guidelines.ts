@@ -170,6 +170,8 @@ export async function importGuidelines(context: Context, input: unknown) {
     validFrom: c.validFrom,
     validUntil: c.validUntil,
     aliases: c.aliases,
+    sourceDoc: path,
+    quotedSpan: c.quotedSpan,
   }));
 
   // The manager still presses "Publish" in the UI, so this function just validates

@@ -10,12 +10,31 @@ function literalMatches(body: string, value: string) {
   return Array.from(body.matchAll(new RegExp(`(?:^|[^\\p{L}\\p{N}_])(${escapeRegex(value)})(?=$|[^\\p{L}\\p{N}_])`, "giu")), (match) => match[1]);
 }
 
-export function exactChecks(body: string, sources: SourceEntry[]) {
+export function assignFindingPages(findings: Finding[], pages: { num: number; text: string }[] = []): Finding[] {
+  return findings.map((f) => {
+    if (!pages.length) return { ...f, page: null };
+    const matched = pages.find((p) => p.text.includes(f.quote));
+    return { ...f, page: matched ? matched.num : null };
+  });
+}
+
+export function exactChecks(body: string, sources: SourceEntry[], pages: { num: number; text: string }[] = []) {
   const findings: Finding[] = [];
   const supported = new Set<string>();
   function add(rule: SourceEntry, category: Finding["category"], quote: string, explanation: string, suggestion: string | null) {
     if (!findings.some((finding) => finding.ruleId === rule.id && finding.category === category && finding.quote === quote)) {
-      findings.push({ id: crypto.randomUUID(), ruleId: rule.id, category, quote, explanation, suggestion, origin: "exact", blocking: category !== "style_suggestion" });
+      const matchedPage = pages.find((p) => p.text.includes(quote));
+      findings.push({
+        id: crypto.randomUUID(),
+        ruleId: rule.id,
+        category,
+        quote,
+        explanation,
+        suggestion,
+        origin: "exact",
+        blocking: category !== "style_suggestion",
+        page: matchedPage ? matchedPage.num : null,
+      });
     }
   }
   for (const source of sources) {
@@ -46,11 +65,18 @@ export function exactChecks(body: string, sources: SourceEntry[]) {
   return { findings, supportedSourceIds: [...supported] };
 }
 
-export function validateAiFindings(output: unknown, body: string, sources: SourceEntry[]): Finding[] {
+export function validateAiFindings(output: unknown, body: string, sources: SourceEntry[], pages: { num: number; text: string }[] = []): Finding[] {
   const parsed = aiOutputSchema.parse(output);
   return parsed.findings.map((finding) => {
     if (!sources.some((source) => source.id === finding.ruleId) || !body.includes(finding.quote)) throw new Error("Invalid source or quote");
-    return { ...finding, id: crypto.randomUUID(), origin: "ai", blocking: finding.category !== "style_suggestion" };
+    const matchedPage = pages.find((p) => p.text.includes(finding.quote));
+    return {
+      ...finding,
+      id: crypto.randomUUID(),
+      origin: "ai",
+      blocking: finding.category !== "style_suggestion",
+      page: matchedPage ? matchedPage.num : null,
+    };
   });
 }
 

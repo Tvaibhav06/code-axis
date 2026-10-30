@@ -50,7 +50,7 @@ export function ReviewPanel({ campaign, state, role, reload, view, loading, load
     {current && <><p role="status"><strong>{current.status === "complete" ? "AI check completed" : "Manual review required"}</strong> · {current.model || "AI off"} · {current.created_at}</p>
       {current.status !== "complete" && <p className="form-error">{failureMessage(current.error_code)} Exact results below remain available. This is not an AI pass.</p>}
       {current.findings.length === 0 && <p>No issues were returned by the checks that ran. A reviewer must still approve the campaign.</p>}
-      <ul className="source-list">{current.findings.map((f) => <li key={f.id}><strong>{categoryLabels[f.category]}</strong> · {f.origin} · {f.blocking ? "Blocking until corrected or dismissed with a reason" : "Advisory"}
+      <ul className="source-list">{current.findings.map((f) => <li key={f.id}><strong>{categoryLabels[f.category]}</strong> · {f.origin} · {f.blocking ? "Blocking until corrected or dismissed with a reason" : "Advisory"}{f.page ? ` · Page ${f.page}` : ""}
         <blockquote>{f.quote}</blockquote><p>{f.explanation}</p><small>Source: {state.rulebooks[0]?.entries.find((s) => s.id === f.rule_id)?.title || f.rule_id}</small>
         {f.suggestion && <><p>Suggested replacement: {f.suggestion}</p>{role === "creator" && <button disabled={busy} className="secondary-button" onClick={() => action("apply", { findingId: f.id })}>Apply to a new saved version</button>}</>}</li>)}</ul></>}
     {runs.length > 0 && <><p className="help-text">The most recent ten checks are loaded. Approval is verified independently on the server.</p><HistoryArchive key={runs[0]?.id} kind="checks" campaignId={campaign.id} /></>}

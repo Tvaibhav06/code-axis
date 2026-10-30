@@ -56,8 +56,42 @@ export async function getRuns(context: Context, campaignId: string, fullHistory 
   if (!z.uuid().safeParse(campaignId).success) throw new DemoError(400, "Choose a saved campaign.");
   const { data, error } = await readRecords((from, to) => context.client.from("check_runs").select("*,findings(*)").eq("workspace_id", context.lease.workspace_id)
     .eq("campaign_id", campaignId).order("created_at", { ascending: false }).order("id", { ascending: false }).range(from, to), fullHistory, 10);
+  if (error || !data) throw new DemoError(503, "Review history could not load. Check that the review migration has been applied.");
+
+  const versionIds = Array.from(new Set(data.map((r: { content_version_id: string }) => r.content_version_id).filter(Boolean)));
+  if (versionIds.length > 0) {
+    const { data: versions } = await context.client
+      .from("campaign_versions")
+      .select("id, document_path")
+      .in("id", versionIds);
+    const docPaths = Array.from(new Set((versions || []).map((v: { document_path: string | null }) => v.document_path).filter(Boolean) as string[]));
+    if (docPaths.length > 0) {
+      const { data: docs } = await context.client
+        .from("validated_documents")
+        .select("path, page_map")
+        .in("path", docPaths);
+      const pageMapsByPath = new Map<string, { num: number; text: string }[]>();
+      if (docs) {
+        for (const doc of docs) {
+          if (Array.isArray(doc.page_map)) pageMapsByPath.set(doc.path, doc.page_map as { num: number; text: string }[]);
+        }
+      }
+      const versionDocMap = new Map((versions || []).map((v: { id: string; document_path: string | null }) => [v.id, v.document_path]));
+      for (const run of data) {
+        const docPath = versionDocMap.get(run.content_version_id);
+        const pages = docPath ? pageMapsByPath.get(docPath) || [] : [];
+        if (Array.isArray(run.findings)) {
+          run.findings = run.findings.map((f: { quote: string; [key: string]: unknown }) => {
+            const matched = pages.find((p) => p.text.includes(f.quote));
+            return { ...f, page: matched ? matched.num : null };
+          });
+        }
+      }
+    }
+  }
+
   const parsed = z.array(runSchema).safeParse(data);
-  if (error || !parsed.success) throw new DemoError(503, "Review history could not load. Check that the review migration has been applied.");
+  if (!parsed.success) throw new DemoError(503, "Review history could not load. Check that the review migration has been applied.");
   return parsed.data;
 }
 
@@ -74,10 +108,24 @@ export async function checkCampaign(context: Context, input: unknown) {
   const book = state.rulebooks[0];
   if (!book) throw new DemoError(400, "Publish approved sources first.");
   if (request.ai && !request.consent) throw new DemoError(400, "Confirm fictional-data consent or switch AI off.");
+
+  let docPages: { num: number; text: string }[] = [];
+  if (version.document_path) {
+    const docRes = await context.client
+      .from("validated_documents")
+      .select("page_map")
+      .eq("path", version.document_path)
+      .eq("workspace_id", context.lease.workspace_id)
+      .maybeSingle();
+    if (Array.isArray(docRes.data?.page_map)) {
+      docPages = docRes.data.page_map as { num: number; text: string }[];
+    }
+  }
+
   // Commitment 1 & 2: confirmed image text and document text are joined to the copy before checking.
   // A finding quote must appear in the combined approved text to be recorded.
   const checkedBody = [version.body, version.image_text, version.document_text].filter(Boolean).join("\n");
-  const exact = exactChecks(checkedBody, book.entries);
+  const exact = exactChecks(checkedBody, book.entries, docPages);
   if (exact.findings.length > 138) throw new DemoError(400, "This copy produces too many exact issues for one review. Correct the repeated terminology/fact conflicts or split the campaign before re-checking.");
   let findings = exact.findings;
   let status = "manual";
@@ -89,7 +137,7 @@ export async function checkCampaign(context: Context, input: unknown) {
       if (!model || !process.env.GEMINI_API_KEY || process.env.AI_CHECKS_ENABLED === "false") throw new AiFailure("ai_not_configured");
       const allowance = await createDemoAdminClient().rpc("reserve_demo_ai_attempt", { p_token_hash: context.tokenHash });
       if (allowance.error) throw new AiFailure("session_or_global_allowance_unavailable");
-      const ai = await reviewWithGemini(checkedBody, book.entries, model);
+      const ai = await reviewWithGemini(checkedBody, book.entries, model, docPages);
       findings = [...findings, ...ai.filter((f) => !findings.some((e) => e.ruleId === f.ruleId && e.quote === f.quote && e.category === f.category))];
       status = "complete";
     } catch (error) { status = "failed"; errorCode = error instanceof AiFailure ? error.message : "provider_unavailable"; }

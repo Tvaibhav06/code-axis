@@ -124,8 +124,8 @@ export function requireSameOrigin(request: Request) {
   }
 }
 
-export function demoErrorResponse(error: unknown) {
-  console.error("demoErrorResponse:", error);
+export function demoErrorResponse(error: unknown, reqId?: string) {
+  console.error("demoErrorResponse:", reqId ? `[req=${reqId}]` : "", error);
   return Response.json({ error: error instanceof DemoError ? error.message : "Demo access is temporarily unavailable." }, {
     status: error instanceof DemoError ? error.status : 503,
     headers: { "Cache-Control": "private, no-store" },

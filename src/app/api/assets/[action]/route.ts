@@ -40,6 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ action: string }> }) {
+  const reqId = randomUUID();
   try {
     requireSameOrigin(request);
     const context = await requireDemoContext();
@@ -86,18 +87,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (action === "upload-pdf") {
-      const formData = await request.formData().catch(() => { throw new DemoError(400, "The form data could not be read."); });
+      const formData = await request.formData().catch((err) => {
+        console.error(`[upload-pdf] [req=${reqId}] FormData read failed:`, err);
+        throw new DemoError(400, "The form data could not be read.");
+      });
       const file = formData.get("file");
       if (!file || !(file instanceof Blob)) throw new DemoError(400, "Choose a PDF up to 2 MB.");
       if (file.type !== "application/pdf" || file.size > 2 * 1024 * 1024) {
         throw new DemoError(400, "Document validation failed. Use a text PDF up to 2 MB, 5 pages and 1,500 words.");
       }
       const buffer = Buffer.from(await file.arrayBuffer());
-      const { extractPdfText } = await import("@/lib/pdf");
       let extraction;
       try {
+        const { extractPdfText } = await import("@/lib/pdf");
         extraction = await extractPdfText(buffer);
-      } catch {
+      } catch (error) {
+        const pdfModule = await import("@/lib/pdf").catch(() => null);
+        if (pdfModule?.PdfError && error instanceof pdfModule.PdfError) {
+          throw new DemoError(400, error.message);
+        }
+        console.error(`[upload-pdf] [req=${reqId}] Extraction/import failed:`, error);
         throw new DemoError(400, "Document validation failed. Use a text PDF up to 2 MB, 5 pages and 1,500 words.");
       }
       const path = `${context.lease.workspace_id}/${context.userId}/${randomUUID()}.pdf`;
@@ -106,7 +115,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const admin = createDemoAdminClient();
       const uploaded = await admin.storage.from("brand-documents").upload(path, buffer, { contentType: "application/pdf", upsert: false });
       if (uploaded.error) {
-        console.error("Server storage document upload error:", uploaded.error);
+        console.error(`[upload-pdf] [req=${reqId}] Server storage document upload error:`, uploaded.error);
         throw new DemoError(503, "The document could not be uploaded to private storage.");
       }
 
@@ -125,7 +134,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         p_text: fullText,
       });
       if (saved.error) {
-        console.error("register_validated_document error:", saved.error);
+        console.error(`[upload-pdf] [req=${reqId}] register_validated_document error:`, saved.error);
         throw new DemoError(503, "The validated document reference could not be saved. No campaign change was made.");
       }
       return NextResponse.json({ ok: true, result: { path, ...extraction, sha256 } }, { headers: { "Cache-Control": "private, no-store" } });
@@ -186,6 +195,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     return NextResponse.json({ error: "Unknown asset action." }, { status: 404, headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
-    return demoErrorResponse(error);
+    return demoErrorResponse(error, reqId);
   }
 }

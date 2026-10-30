@@ -85,6 +85,7 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
                 validFrom: string | null;
                 validUntil: string | null;
                 aliases?: string[];
+                quotedSpan?: string;
               }>;
               if (!candidates.length) {
                 setError("No guideline candidates could be extracted from this document.");
@@ -100,6 +101,8 @@ function SourcesEditor({ data, editable, reload }: { data: DeskState; editable: 
                 validFrom: c.validFrom,
                 validUntil: c.validUntil,
                 aliases: c.aliases || [],
+                sourceDoc: path,
+                quotedSpan: c.quotedSpan || null,
               }));
               setEntries((existing) => [...existing, ...imported].slice(0, 30));
             } catch (err) {

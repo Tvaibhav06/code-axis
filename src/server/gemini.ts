@@ -5,7 +5,7 @@ import { aiOutputSchema } from "@/lib/review-schema";
 import { validateAiFindings } from "@/lib/checks";
 
 export class AiFailure extends Error {}
-export async function reviewWithGemini(body: string, sources: SourceEntry[], model: string) {
+export async function reviewWithGemini(body: string, sources: SourceEntry[], model: string, pages: { num: number; text: string }[] = []) {
   if (!process.env.GEMINI_API_KEY || process.env.AI_CHECKS_ENABLED === "false") throw new AiFailure("ai_disabled");
   if (!/^gemini-[a-z0-9.-]+$/.test(model)) throw new AiFailure("invalid_model");
   const tier = process.env.GEMINI_BILLING_TIER || "free";
@@ -26,7 +26,7 @@ export async function reviewWithGemini(body: string, sources: SourceEntry[], mod
     const candidate = envelope.candidates[0];
     if (candidate?.finishReason !== "STOP") throw new AiFailure("incomplete_output");
     const text = candidate.content.parts.filter((part) => !part.thought).map((part) => part.text || "").join("");
-    return validateAiFindings(JSON.parse(text), body, sources);
+    return validateAiFindings(JSON.parse(text), body, sources, pages);
   } catch (error) {
     if (error instanceof AiFailure) throw error;
     throw new AiFailure(error instanceof DOMException && error.name === "TimeoutError" ? "provider_timeout" : "invalid_or_unavailable_output");

@@ -1,4 +1,6 @@
 import { createWorker } from "tesseract.js";
+import path from "node:path";
+import fs from "node:fs";
 import { MAX_IMAGE_TEXT_CHARS } from "./ocr-schema";
 import { MAX_IMAGE_BYTES } from "./image-schema";
 
@@ -14,9 +16,25 @@ const pool: { worker: Awaited<ReturnType<typeof createWorker>> | null; busy: boo
 
 export async function ensureWorker(): Promise<Awaited<ReturnType<typeof createWorker>>> {
   if (pool.worker) return pool.worker;
-  const worker = await createWorker("eng");
-  pool.worker = worker;
-  return worker;
+  const rootDir = path.resolve(process.cwd());
+  const localTrainedData = path.join(rootDir, "eng.traineddata");
+  const hasLocalData = fs.existsSync(localTrainedData);
+
+  const options: Record<string, unknown> = { gzip: false };
+  if (hasLocalData) {
+    options.langPath = rootDir;
+  }
+
+  try {
+    const start = Date.now();
+    const worker = await createWorker("eng", 1, options);
+    console.log(`[OCR] Worker initialized in ${Date.now() - start}ms (local=${hasLocalData})`);
+    pool.worker = worker;
+    return worker;
+  } catch (err) {
+    console.error("[OCR] Worker initialization failed:", err);
+    throw new OcrError("Image recognition is temporarily unavailable. Manual review is required.");
+  }
 }
 
 export async function terminateOcrWorker() {
@@ -32,12 +50,15 @@ export async function recognizeImage(bytes: Buffer): Promise<{ text: string; con
   pool.busy = true;
   try {
     const worker = await ensureWorker();
+    const startRec = Date.now();
     const { data } = await worker.recognize(bytes);
+    console.log(`[OCR] Recognition completed in ${Date.now() - startRec}ms (confidence=${data.confidence}%)`);
     const text = data.text.replace(/\r\n?/g, "\n").trim();
     if (text.length > MAX_IMAGE_TEXT_CHARS) throw new OcrError("The recognised text is too long to review.");
     return { text, confidence: Math.round(data.confidence ?? 0) };
   } catch (error) {
     if (error instanceof OcrError) throw error;
+    console.error("[OCR] Recognition error:", error);
     throw new OcrError("Image recognition failed. Manual review is required.");
   } finally {
     pool.busy = false;

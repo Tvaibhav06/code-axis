@@ -76,4 +76,13 @@ describe("Commitment 1: text inside images", () => {
   it("rejects empty buffers", async () => {
     await expect(recognizeImage(Buffer.alloc(0))).rejects.toThrow();
   });
+
+  it("recognizeImage initializes with local traineddata and completes without timeout", async () => {
+    const png = await render("SampleCo 14 Days Free");
+    const t0 = performance.now();
+    const result = await recognizeImage(png);
+    const duration = Math.round(performance.now() - t0);
+    expect(result.text).toContain("14");
+    expect(duration).toBeLessThan(10_000);
+  });
 });

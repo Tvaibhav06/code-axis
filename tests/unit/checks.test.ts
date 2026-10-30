@@ -11,4 +11,18 @@ describe("explainable campaign checks", () => {
  it("rejects invented source IDs and quotes", () => { const base = { ruleId: samplecoSources[0].id, category: "style_suggestion", quote: "invented", explanation: "test", suggestion: null }; expect(() => validateAiFindings({ findings: [base] }, "SampleCo", samplecoSources)).toThrow(); expect(() => validateAiFindings({ findings: [{ ...base, ruleId: "fake", quote: "SampleCo" }] }, "SampleCo", samplecoSources)).toThrow(); });
  it("rejects malformed model output", () => { expect(() => validateAiFindings({ findings: "clean" }, "SampleCo", samplecoSources)).toThrow(); });
  it("replaces one literal quote without interpreting replacement syntax", () => { expect(applyLiteralSuggestion("old old", "old", "$&")).toBe("$& old"); expect(() => applyLiteralSuggestion("new", "old", "x")).toThrow(); });
+ it("assigns page number to findings based on document pages", () => {
+   const pages = [
+     { num: 1, text: "Welcome to SampleCorp overview." },
+     { num: 2, text: "Pricing is INR 799/month for all users." },
+   ];
+   const fullBody = "Headline\nWelcome to SampleCorp overview.\nPricing is INR 799/month for all users.\nSign up today for 30 days free!";
+   const res = exactChecks(fullBody, samplecoSources, pages);
+   const corpFinding = res.findings.find((f) => f.quote === "SampleCorp");
+   const priceFinding = res.findings.find((f) => f.quote.includes("799"));
+   const trialFinding = res.findings.find((f) => f.quote.includes("30 days"));
+   expect(corpFinding?.page).toBe(1);
+   expect(priceFinding?.page).toBe(2);
+   expect(trialFinding?.page).toBeNull();
+ });
 });

@@ -16,6 +16,8 @@ export const sourceEntrySchema = z.strictObject({
   validFrom: optionalDate,
   validUntil: optionalDate,
   aliases: z.array(z.string().trim().min(1).max(80)).max(8),
+  sourceDoc: documentPathSchema.nullable().optional(),
+  quotedSpan: z.string().min(1).max(500).nullable().optional(),
 }).superRefine((entry, ctx) => {
   if (entry.validFrom && entry.validUntil && entry.validFrom > entry.validUntil) {
     ctx.addIssue({ code: "custom", path: ["validUntil"], message: "The end date must follow the start date." });
