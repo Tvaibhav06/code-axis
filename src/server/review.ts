@@ -33,13 +33,13 @@ export async function humanAction(context: Context, input: unknown) {
   if (!parsed.success) throw new DemoError(400, "Choose an action and enter a note of up to 1,500 characters.");
   const p = parsed.data;
   const result = await context.client.rpc("review_action", { p_campaign: p.campaignId, p_expected_version: p.version, p_action: p.action, p_note: p.note, p_finding: p.findingId });
-  if (result.error) reviewError(result.error.code);
+  if (result.error) reviewError(result.error.code, result.error.message);
   return result.data;
 }
-function reviewError(code?: string): never {
+function reviewError(code?: string, detail?: string): never {
   if (code === "42501") throw new DemoError(403, "This action requires the authorised role and an independent reviewer.");
   if (isVersionConflict(code)) throw new DemoError(409, "The review, copy or sources changed. Load latest before retrying.");
-  if (code === "22023") throw new DemoError(400, "Approval needs a submitted current version, resolved blocking findings, current supporting sources and all required review checks.");
+  if (code === "22023") throw new DemoError(400, detail || "Approval needs a submitted current version, resolved blocking findings, current supporting sources and all required review checks.");
   throw new DemoError(503, "The review action could not be confirmed. Load latest before retrying.");
 }
 export async function approve(context: Context, input: unknown) {
@@ -48,7 +48,7 @@ export async function approve(context: Context, input: unknown) {
   if (!parsed.success) throw new DemoError(400, "Complete the reviewer checklist.");
   const p = parsed.data;
   const result = await context.client.rpc("approve_campaign", { p_campaign: p.campaignId, p_expected_version: p.version, p_rulebook: p.rulebookId, p_run: p.runId, p_checklist: p.checklist });
-  if (result.error) reviewError(result.error.code);
+  if (result.error) reviewError(result.error.code, result.error.message);
   return result.data;
 }
 
